@@ -1,0 +1,2558 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Arcana - 78 Rider-Waite-Smith Mystical Ritual</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #050307;
+      font-family: 'Cinzel', 'Trajan Pro', 'Didot', 'Baskerville', Georgia, serif;
+      color: #e4dcf0;
+    }
+    #root {
+      width: 100%;
+      height: 100%;
+      position: relative;
+    }
+    canvas#gl-canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 1;
+    }
+    .ritual-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 10;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 32px 40px;
+      box-sizing: border-box;
+    }
+    .status-badge {
+      font-size: 11px;
+      letter-spacing: 0.35em;
+      text-transform: uppercase;
+      color: rgba(186, 147, 238, 0.85);
+      text-shadow: 0 0 12px rgba(147, 51, 234, 0.5);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .status-badge::before {
+      content: '';
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      background: #a855f7;
+      border-radius: 50%;
+      box-shadow: 0 0 8px #9333ea;
+    }
+    .instructions-hint {
+      text-align: center;
+      font-size: 13px;
+      letter-spacing: 0.25em;
+      color: rgba(220, 205, 245, 0.85);
+      text-shadow: 0 0 10px rgba(106, 27, 154, 0.6);
+      transition: color 0.5s ease;
+      margin-bottom: 8px;
+    }
+
+    /* 左侧手势与步骤指引面板 */
+    .tutorial-panel {
+      position: absolute;
+      top: 32px;
+      left: 40px;
+      width: 280px;
+      background: rgba(11, 7, 18, 0.82);
+      border: 1px solid rgba(147, 51, 234, 0.3);
+      border-radius: 6px;
+      padding: 16px;
+      backdrop-filter: blur(14px);
+      z-index: 20;
+      pointer-events: auto;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.85), 0 0 15px rgba(106, 27, 154, 0.15);
+    }
+    .tutorial-title {
+      font-size: 11px;
+      letter-spacing: 0.2em;
+      color: #c084fc;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(147, 51, 234, 0.2);
+      padding-bottom: 6px;
+    }
+    .tutorial-step {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-bottom: 10px;
+      font-size: 11px;
+      line-height: 1.5;
+      color: rgba(216, 196, 240, 0.6);
+      letter-spacing: 0.05em;
+      transition: all 0.3s;
+    }
+    .tutorial-step.active {
+      color: #f3e8ff;
+      text-shadow: 0 0 8px rgba(192, 132, 252, 0.6);
+    }
+    .tutorial-icon {
+      font-size: 14px;
+      line-height: 1;
+    }
+
+    /* 右上角 320x240 Live Camera Feed */
+    .camera-container {
+      position: absolute;
+      top: 24px;
+      right: 24px;
+      width: 240px;
+      height: 180px;
+      background: rgba(8, 5, 13, 0.88);
+      border: 1px solid rgba(147, 51, 234, 0.35);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.9), 0 0 15px rgba(88, 28, 135, 0.3);
+      border-radius: 4px;
+      overflow: hidden;
+      z-index: 20;
+      backdrop-filter: blur(8px);
+      pointer-events: auto;
+    }
+    .camera-container video {
+      display: none;
+    }
+    .camera-container canvas {
+      width: 100%;
+      height: 100%;
+      transform: scaleX(-1);
+      display: block;
+    }
+    .camera-meta {
+      position: absolute;
+      bottom: 6px;
+      left: 8px;
+      right: 8px;
+      font-size: 9px;
+      color: rgba(200, 160, 255, 0.85);
+      letter-spacing: 0.1em;
+      display: flex;
+      justify-content: space-between;
+      text-shadow: 0 1px 4px #000;
+      pointer-events: none;
+    }
+
+    /* 翻牌结果文字副标 */
+    .card-title-panel {
+      position: absolute;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+      z-index: 15;
+      pointer-events: none;
+      transition: opacity 1.2s cubic-bezier(0.16, 1, 0.3, 1), transform 1.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .card-title-num {
+      font-size: 14px;
+      letter-spacing: 0.4em;
+      color: rgba(192, 132, 252, 0.95);
+      margin-bottom: 4px;
+      text-shadow: 0 0 12px rgba(147, 51, 234, 0.6);
+    }
+    .card-title-name {
+      font-size: 22px;
+      letter-spacing: 0.25em;
+      color: #f5eeff;
+      text-transform: uppercase;
+      font-weight: 500;
+      margin-bottom: 4px;
+      text-shadow: 0 2px 18px rgba(106, 27, 154, 0.9);
+    }
+    .card-title-desc {
+      font-size: 12px;
+      letter-spacing: 0.15em;
+      color: rgba(216, 180, 254, 0.75);
+    }
+
+    .film-grain {
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      pointer-events: none;
+      z-index: 5;
+      opacity: 0.04;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+    }
+
+    /* ============ App 外壳通用样式 ============ */
+    .home-screen {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      overflow-y: auto;
+      background: radial-gradient(ellipse at 50% 0%, #1a0b2e 0%, #050307 65%);
+      padding: 60px 40px 40px;
+      box-sizing: border-box;
+      user-select: none;
+    }
+    .home-header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+    .home-title {
+      font-size: 34px;
+      letter-spacing: 0.35em;
+      color: #f5eeff;
+      text-shadow: 0 0 24px rgba(147, 51, 234, 0.7);
+      margin-bottom: 10px;
+    }
+    .home-subtitle {
+      font-size: 12px;
+      letter-spacing: 0.3em;
+      color: rgba(192, 132, 252, 0.75);
+      text-transform: uppercase;
+    }
+    .home-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 22px;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    .home-card {
+      background: rgba(20, 10, 32, 0.75);
+      border: 1px solid rgba(147, 51, 234, 0.35);
+      border-radius: 14px;
+      padding: 28px 22px;
+      cursor: pointer;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 8px 28px rgba(0,0,0,0.6);
+      transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+    }
+    .home-card:hover {
+      transform: translateY(-4px);
+      border-color: rgba(192, 132, 252, 0.85);
+      box-shadow: 0 14px 36px rgba(88, 28, 135, 0.55);
+    }
+    .home-card-icon {
+      font-size: 34px;
+      margin-bottom: 14px;
+    }
+    .home-card-title {
+      font-size: 16px;
+      letter-spacing: 0.1em;
+      color: #f3e8ff;
+      margin-bottom: 8px;
+    }
+    .home-card-desc {
+      font-size: 12px;
+      line-height: 1.6;
+      letter-spacing: 0.03em;
+      color: rgba(216, 196, 240, 0.7);
+    }
+
+    .exit-ritual-btn {
+      position: absolute;
+      bottom: 26px;
+      left: 40px;
+      z-index: 25;
+      background: rgba(20, 10, 32, 0.75);
+      border: 1px solid rgba(147, 51, 234, 0.4);
+      color: #e4dcf0;
+      font-size: 11px;
+      letter-spacing: 0.15em;
+      padding: 10px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      pointer-events: auto;
+      backdrop-filter: blur(8px);
+    }
+    .exit-ritual-btn:hover {
+      border-color: rgba(192, 132, 252, 0.9);
+    }
+    .exit-ritual-btn-static {
+      position: absolute;
+      top: 30px;
+      left: 40px;
+      bottom: auto;
+    }
+
+    .position-label {
+      font-size: 12px;
+      letter-spacing: 0.2em;
+      color: #f3e8ff;
+      background: rgba(147, 51, 234, 0.25);
+      border: 1px solid rgba(192, 132, 252, 0.5);
+      padding: 4px 14px;
+      border-radius: 20px;
+    }
+
+    .primary-btn {
+      background: linear-gradient(135deg, #6b21a8, #a855f7);
+      border: none;
+      color: #fff;
+      font-size: 13px;
+      letter-spacing: 0.1em;
+      padding: 12px 26px;
+      border-radius: 8px;
+      cursor: pointer;
+      box-shadow: 0 6px 20px rgba(147, 51, 234, 0.45);
+    }
+    .primary-btn:hover { filter: brightness(1.1); }
+
+    .next-position-btn {
+      position: absolute;
+      bottom: 100px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 25;
+      pointer-events: auto;
+    }
+
+    .result-list {
+      max-width: 700px;
+      margin: 0 auto 30px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .result-item {
+      background: rgba(20, 10, 32, 0.75);
+      border: 1px solid rgba(147, 51, 234, 0.3);
+      border-radius: 10px;
+      padding: 16px 20px;
+    }
+    .result-position {
+      font-size: 11px;
+      letter-spacing: 0.2em;
+      color: #c084fc;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+    .result-card-name {
+      font-size: 16px;
+      color: #f3e8ff;
+      margin-bottom: 4px;
+      letter-spacing: 0.05em;
+    }
+    .result-card-desc {
+      font-size: 12px;
+      color: rgba(216, 196, 240, 0.75);
+    }
+
+    .encyclopedia-screen { padding-top: 90px; }
+    .filter-row {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 26px;
+    }
+    .filter-chip {
+      background: rgba(20, 10, 32, 0.7);
+      border: 1px solid rgba(147, 51, 234, 0.3);
+      color: rgba(216, 196, 240, 0.8);
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      padding: 7px 16px;
+      border-radius: 20px;
+      cursor: pointer;
+    }
+    .filter-chip.active {
+      background: rgba(147, 51, 234, 0.35);
+      border-color: rgba(192, 132, 252, 0.9);
+      color: #fff;
+    }
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      gap: 16px;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+    .mini-card {
+      border-radius: 8px;
+      overflow: hidden;
+      cursor: pointer;
+      border: 1px solid rgba(147, 51, 234, 0.25);
+      transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+    .mini-card:hover {
+      transform: translateY(-3px);
+      border-color: rgba(192, 132, 252, 0.8);
+    }
+    .mini-card img {
+      width: 100%;
+      aspect-ratio: 0.58;
+      object-fit: cover;
+      display: block;
+      background: #1a0f28;
+    }
+    .mini-card-name {
+      font-size: 9px;
+      letter-spacing: 0.05em;
+      color: #e4dcf0;
+      text-align: center;
+      padding: 6px 4px;
+      background: rgba(10, 5, 16, 0.9);
+    }
+
+    .card-modal-backdrop {
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(3, 1, 6, 0.85);
+      backdrop-filter: blur(6px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+    }
+    .card-modal {
+      display: flex;
+      gap: 26px;
+      background: rgba(20, 10, 32, 0.95);
+      border: 1px solid rgba(147, 51, 234, 0.5);
+      border-radius: 14px;
+      padding: 26px;
+      max-width: 560px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.7);
+    }
+    .card-modal img {
+      width: 180px;
+      border-radius: 8px;
+      object-fit: cover;
+    }
+    .card-modal-info { display: flex; flex-direction: column; gap: 8px; }
+    .card-modal-num { font-size: 12px; letter-spacing: 0.3em; color: #c084fc; }
+    .card-modal-name { font-size: 20px; letter-spacing: 0.1em; color: #f5eeff; }
+    .card-modal-desc { font-size: 13px; color: rgba(226, 210, 245, 0.9); line-height: 1.6; }
+    .card-modal-sub { font-size: 11px; color: rgba(192, 132, 252, 0.7); margin-bottom: 8px; }
+
+    .settings-list { max-width: 600px; margin: 0 auto; }
+    .settings-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 20px;
+      background: rgba(20, 10, 32, 0.75);
+      border: 1px solid rgba(147, 51, 234, 0.3);
+      border-radius: 10px;
+      padding: 20px 22px;
+    }
+    .settings-label { font-size: 14px; color: #f3e8ff; margin-bottom: 6px; }
+    .settings-desc { font-size: 11px; color: rgba(216, 196, 240, 0.65); max-width: 320px; line-height: 1.5; }
+    .toggle-btn {
+      flex-shrink: 0;
+      background: rgba(147, 51, 234, 0.2);
+      border: 1px solid rgba(147, 51, 234, 0.5);
+      color: #e4dcf0;
+      font-size: 11px;
+      letter-spacing: 0.05em;
+      padding: 10px 16px;
+      border-radius: 20px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .toggle-btn.on {
+      background: rgba(192, 132, 252, 0.9);
+      color: #1a0b2e;
+      border-color: transparent;
+    }
+
+    /* ============ 问题输入页 ============ */
+    .question-box {
+      max-width: 620px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .question-textarea {
+      width: 100%;
+      min-height: 110px;
+      background: rgba(20, 10, 32, 0.75);
+      border: 1px solid rgba(147, 51, 234, 0.35);
+      border-radius: 10px;
+      color: #f3e8ff;
+      font-size: 14px;
+      line-height: 1.6;
+      padding: 16px;
+      box-sizing: border-box;
+      resize: vertical;
+      font-family: inherit;
+    }
+    .question-textarea.small { min-height: 70px; }
+    .question-textarea:focus { outline: none; border-color: rgba(192, 132, 252, 0.9); }
+    .example-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: rgba(216, 196, 240, 0.75);
+      background: rgba(20, 10, 32, 0.5);
+      border-radius: 8px;
+      padding: 10px 14px;
+    }
+    .example-label { color: rgba(192, 132, 252, 0.9); flex-shrink: 0; }
+    .example-text { flex: 1; min-width: 160px; color: #e4dcf0; }
+    .chip-btn {
+      background: rgba(147, 51, 234, 0.2);
+      border: 1px solid rgba(147, 51, 234, 0.5);
+      color: #e4dcf0;
+      font-size: 11px;
+      padding: 6px 12px;
+      border-radius: 16px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .chip-btn:hover { border-color: rgba(192, 132, 252, 0.9); }
+    .question-next-btn { align-self: center; margin-top: 8px; }
+
+    /* ============ 占卜结果 / 日记附加样式 ============ */
+    .result-question {
+      max-width: 700px;
+      margin: 0 auto 20px;
+      text-align: center;
+      font-size: 13px;
+      color: rgba(216, 196, 240, 0.85);
+      background: rgba(147, 51, 234, 0.15);
+      border: 1px solid rgba(147, 51, 234, 0.3);
+      border-radius: 8px;
+      padding: 10px 16px;
+    }
+    .reversed-badge {
+      display: inline-block;
+      margin-left: 10px;
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      color: #fff;
+      background: rgba(220, 38, 38, 0.75);
+      border-radius: 10px;
+      padding: 2px 8px;
+      vertical-align: middle;
+    }
+    .journal-save-box {
+      max-width: 700px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      background: rgba(20, 10, 32, 0.6);
+      border: 1px solid rgba(147, 51, 234, 0.25);
+      border-radius: 10px;
+      padding: 20px;
+    }
+    .tag-input {
+      width: 100%;
+      background: rgba(10, 5, 16, 0.7);
+      border: 1px solid rgba(147, 51, 234, 0.35);
+      border-radius: 8px;
+      color: #f3e8ff;
+      font-size: 13px;
+      padding: 10px 14px;
+      box-sizing: border-box;
+      font-family: inherit;
+    }
+    .tag-input:focus { outline: none; border-color: rgba(192, 132, 252, 0.9); }
+    .journal-search { max-width: 500px; margin: 0 auto 24px; display: block; }
+    .result-btn-row { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+    .ghost-btn {
+      background: transparent;
+      border: 1px solid rgba(192, 132, 252, 0.6);
+      box-shadow: none;
+    }
+
+    /* ============ 牌阵教程 / 图鉴 tab ============ */
+    .tab-chip { font-size: 12px; padding: 8px 20px; }
+    .spread-positions-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .position-chip {
+      font-size: 11px;
+      color: rgba(216, 196, 240, 0.85);
+      background: rgba(147, 51, 234, 0.15);
+      border: 1px solid rgba(147, 51, 234, 0.3);
+      border-radius: 14px;
+      padding: 4px 10px;
+    }
+    .card-modal-meaning {
+      font-size: 12px;
+      color: rgba(226, 210, 245, 0.9);
+      line-height: 1.6;
+    }
+    .card-modal-meaning strong { color: #c084fc; }
+
+    /* ============ 占卜日记条目 ============ */
+    .journal-item { position: relative; }
+    .journal-detail {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px dashed rgba(147, 51, 234, 0.3);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .journal-feeling {
+      margin-top: 6px;
+      font-size: 12px;
+      color: rgba(216, 196, 240, 0.8);
+      font-style: italic;
+    }
+    .delete-btn {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+    }
+    .empty-hint {
+      text-align: center;
+      color: rgba(216, 196, 240, 0.6);
+      font-size: 13px;
+      margin: 30px 0;
+    }
+
+    /* Refined desktop presentation — existing ritual and deck remain intact. */
+    :root { --line: rgba(192,132,252,.18); --muted: #a99ab9; }
+    button, textarea { font-family: inherit; }
+    button:focus-visible, [tabindex]:focus-visible { outline: 2px solid #c084fc; outline-offset: 5px; }
+    .home-screen { padding: 104px 56px 48px; background: radial-gradient(ellipse at 72% 12%, #1a0b2e 0%, #0d0715 36%, #050307 76%); }
+    .home-header { margin: 12px auto 44px; }
+    .home-title { font-size: 32px; letter-spacing: .2em; font-weight: 400; text-shadow: none; margin-bottom: 16px; }
+    .home-subtitle { font-size: 10px; letter-spacing: .22em; line-height: 1.9; color: var(--muted); }
+    .home-grid { max-width: 1040px; gap: 16px; }
+    .home-card { position: relative; border: 1px solid var(--line); border-radius: 12px; background: linear-gradient(135deg,rgba(34,19,49,.65),rgba(14,8,22,.8)); padding: 30px; box-shadow: 0 12px 36px #0002; }
+    .home-card:hover { transform: translateY(-3px); border-color: #c084fc80; box-shadow: 0 16px 40px #0005; background-color: #1a0b2e; }
+    .home-card-icon { font-size: 25px; margin-bottom: 24px; }
+    .home-card-title { font-size: 17px; font-weight: 400; letter-spacing: .12em; margin-bottom: 12px; }
+    .home-card-desc { color: var(--muted); font-size: 12px; line-height: 1.9; }
+    .landing { padding: 0 56px 24px; }
+    .landing-nav { max-width: 1168px; margin: auto; height: 86px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--line); }
+    .wordmark { font-size:20px; letter-spacing:.3em; display:flex; align-items:center; gap:14px; }
+    .wordmark span { color:#c084fc; font-size:27px; }
+    .nav-caption { font-size:10px; letter-spacing:.2em; color:var(--muted); }
+    .landing-hero { max-width:1040px; min-height:340px; margin:0 auto; display:grid; grid-template-columns: 1.2fr 1fr; align-items:center; gap:32px; }
+    .eyebrow { color:#c084fc; font-size:10px; letter-spacing:.3em; margin-bottom:22px; }
+    .hero-title { color:#f5eeff; font-size:clamp(34px,3.8vw,52px); line-height:1.4; font-weight:400; letter-spacing:.12em; margin-bottom:20px; }
+    .hero-copy { color:var(--muted); font-size:13px; line-height:2; letter-spacing:.08em; }
+    .celestial { width:264px; height:264px; justify-self:center; position:relative; display:grid; place-items:center; border:1px solid #c084fc24; border-radius:50%; background:radial-gradient(circle,#9333ea18,transparent 68%); }
+    .celestial::before { content:''; position:absolute; inset:22px; border:1px solid #c084fc30; border-radius:50%; }
+    .celestial::after { content:''; position:absolute; width:176px; height:176px; border:1px solid #c084fc30; transform:rotate(45deg); }
+    .celestial-moon {
+      width: 92px;
+      height: 92px;
+      border-radius: 50%;
+      box-shadow: inset 19px -7px 0 0 #c084fc;
+      transform: rotate(-24deg);
+      filter: drop-shadow(0 0 24px #9333ea55);
+      animation: floatCelestialMoon 3.5s ease-in-out infinite alternate;
+    }
+    @keyframes floatCelestialMoon {
+      0% {
+        transform: translateY(0px) rotate(-24deg);
+      }
+      100% {
+        transform: translateY(-8px) rotate(-24deg);
+      }
+    }
+    .orbit-star { position:absolute; color:#c084fc; font-size:19px; background:#11091c; padding:0 7px; top:-13px; }
+    .orbit-caption { position:absolute; bottom:-28px; font-size:9px; color:var(--muted); letter-spacing:.28em; }
+    .section-label { max-width:1040px; margin:4px auto 18px; display:flex; align-items:center; gap:16px; font-size:10px; color:var(--muted); letter-spacing:.23em; }
+    .section-label::after { content:''; height:1px; background:var(--line); flex:1; }
+    .landing .home-grid { grid-template-columns: 1.45fr 1fr 1fr; }
+    .landing .home-card { text-align:left; font-family:inherit; color:inherit; min-height:204px; }
+    .landing .home-card:first-child { background:linear-gradient(120deg,#34154c99,#180d26); border-color:#c084fc55; }
+    .module-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:24px; color:#c084fc; }
+    .module-symbol { font-size:25px; line-height:1; }
+    .module-index { font-size:10px; letter-spacing:.18em; color:#a99ab9; }
+    .module-arrow { position:absolute; right:25px; bottom:24px; color:#c084fc; font-size:20px; }
+    .landing .home-card-desc { max-width:85%; }
+    .landing-footer { max-width:1040px; margin:28px auto 0; padding-top:18px; display:flex; justify-content:space-between; align-items:center; color:#82748f; font-size:9px; letter-spacing:.18em; }
+    .quiet-button { border:1px solid var(--line); border-radius:30px; background:#140a2040; color:#c5b7d4; padding:10px 17px; cursor:pointer; font-size:11px; letter-spacing:.1em; }
+    .quiet-button:hover { border-color:#c084fc80; color:#f5eeff; }
+    .primary-btn { border:1px solid #c084fc55; background:linear-gradient(120deg,#6b21a8,#9333ea); border-radius:8px; padding:14px 28px; box-shadow:0 6px 24px #9333ea20; transition:filter .2s; }
+    .exit-ritual-btn { border-color:var(--line); border-radius:30px; box-shadow:none; }
+    .exit-ritual-btn-static { top:30px; left:56px; }
+    .question-box { gap:20px; }
+    .question-textarea { background:#10091a; border-color:var(--line); padding:20px; line-height:1.9; user-select:text; -webkit-user-select:text; }
+    .example-row { background:#c084fc08; border:1px solid var(--line); padding:15px; }
+    .settings-row, .result-item, .journal-item { border-color:var(--line); background:linear-gradient(120deg,#20122e99,#10091a); padding:24px; border-radius:12px; }
+    .settings-desc, .result-card-desc { line-height:1.9; }
+    .filter-chip { padding:10px 19px; border-color:var(--line); }
+    .filter-chip.active { background:#6b21a850; border-color:#c084fc80; }
+    .card-modal { border-color:#c084fc40; background:#140c20; padding:32px; border-radius:16px; }
+    .tutorial-panel { border-color:var(--line); border-radius:12px; box-shadow:0 12px 40px #0005; }
+    .tutorial-title { text-shadow:none; border-color:var(--line); }
+    .tutorial-step { line-height:1.8; }
+    .tutorial-step.active { text-shadow:none; }
+    .camera-container { border-color:var(--line); border-radius:12px; box-shadow:0 12px 40px #0005; }
+    .home-screen::-webkit-scrollbar { width:6px; }
+    .home-screen::-webkit-scrollbar-thumb { background:#c084fc30; border-radius:6px; }
+    @media (min-width:1400px) { .landing-hero { min-height:400px; } }
+    @media (max-width:800px) { .home-screen { padding:100px 24px 32px; } .landing { padding:0 24px 24px; } .landing-hero { grid-template-columns:1fr .65fr; min-height:310px; gap:12px; } .celestial { transform:scale(.72); width:230px; height:230px; } .landing .home-grid { grid-template-columns:1fr; } .landing .home-card { min-height:175px; } .nav-caption { display:none; } .exit-ritual-btn-static { left:24px; } }
+    @media (max-width:520px) { .landing-hero { grid-template-columns:1fr; padding:44px 0; } .celestial { display:none; } .hero-title { font-size:34px; } .landing-footer { gap:14px; flex-wrap:wrap; } .card-modal { max-width:94vw; padding:18px; gap:16px; } .card-modal img { width:120px; } }
+    @media (prefers-reduced-motion:reduce) { .home-card { transition:none; } }
+    /* Translucent, slowly drifting light behind the existing homepage. */
+    .landing { isolation:isolate;overflow-x:hidden;background:#07030e; }
+    .landing::before,.landing::after { content:'';position:absolute;pointer-events:none;z-index:0; }
+    .landing::before {
+      inset:-5% -8%;
+      background:radial-gradient(ellipse at 77% 25%,#a855f746 0%,#7133b329 22%,transparent 49%),
+        radial-gradient(ellipse at 87% 52%,#7b28d336 0%,transparent 42%),
+        radial-gradient(ellipse at 21% 92%,#7133a524 0%,transparent 43%);
+      filter:blur(26px);opacity:.75;
+      animation:arcana-veil-drift 20s ease-in-out infinite alternate;
+    }
+    .landing::after {
+      width:480px;height:480px;right:-140px;top:90px;
+      border:1px solid #bc8beb24;border-radius:50%;
+      background:repeating-radial-gradient(circle,transparent 0 53px,#c084fc12 54px 55px,transparent 56px 79px);
+      box-shadow:0 0 0 20px #c084fc04,0 0 0 21px #c084fc10;
+      opacity:.55;animation:arcana-seal-breathe 14s ease-in-out infinite alternate;
+    }
+    .landing > :not(.film-grain) { position:relative;z-index:1; }
+    .landing .home-card { backdrop-filter:blur(14px); }
+    @keyframes arcana-veil-drift {
+      from { transform:translate(-1%,-1%) scale(1);opacity:.55; }
+      to { transform:translate(2%,2%) scale(1.06);opacity:.90; }
+    }
+    @keyframes arcana-seal-breathe {
+      from { opacity:.3;transform:translateY(0); }
+      to { opacity:.65;transform:translateY(12px); }
+    }
+    @media(max-width:700px) { .landing::after { right:-320px; } }
+    @media(prefers-reduced-motion:reduce) { .landing::before,.landing::after { animation:none; } }
+
+    .landing::before { inset:-15%;filter:blur(14px);background:radial-gradient(ellipse at 70% 25%,#b55cff70,transparent 42%),radial-gradient(ellipse at 30% 75%,#762de870,transparent 45%),conic-gradient(from 30deg at 80% 30%,transparent,#b15bff35,transparent,#913bdd40,transparent);animation:arcana-visible-flow 7s ease-in-out infinite alternate; }
+    .landing::after { inset:0;width:auto;height:auto;border:0;border-radius:0;box-shadow:none;background:radial-gradient(circle,#e7bdffcc 0 1.2px,transparent 2.3px) 0 0/187px 163px,radial-gradient(circle,#ca91ffbb 0 1px,transparent 2px) 62px 38px/257px 227px;opacity:.55;animation:arcana-visible-stars 12s linear infinite;mask-image:linear-gradient(90deg,#000,transparent 23%,transparent 62%,#000); }
+    @keyframes arcana-visible-flow { from { transform:translate(-6%,-4%) rotate(-8deg) scale(1);opacity:.7; } to { transform:translate(6%,4%) rotate(9deg) scale(1.14);opacity:1; } }
+    @keyframes arcana-visible-stars { from { background-position:0 0,62px 38px; } to { background-position:0 -163px,62px -189px; } }
+    @media(prefers-reduced-motion:reduce) { .landing::before,.landing::after { animation:none; } }
+  </style>
+
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "react": "https://esm.sh/react@18.2.0",
+        "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+        "three": "https://esm.sh/three@0.160.0"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="module">
+    import React, { useEffect, useRef, useState } from 'react';
+    import { createRoot } from 'react-dom/client';
+    import * as THREE from 'three';
+
+    // =========================================================================
+    // 1. 标准 1909 伟特塔罗 (RIDER–WAITE–SMITH) 78 张全量牌面图腾与经典构图定义
+    // =========================================================================
+    const MAJOR_ARCANA_DATA = [
+      { id: "major-00", num: "0", name: "THE FOOL", desc: "愚者 · 纯真冒险与无限潜能", bg: "#fced9b", fg: "#d35400", sub: "悬崖·白犬·红羽桂冠", symbol: "☀️", figure: "🚶‍♂️", upright: "全新开始、冒险精神、对未知保持信任", reversed: "鲁莽冲动、准备不足、害怕迈出第一步" },
+      { id: "major-01", num: "I", name: "THE MAGICIAN", desc: "魔术师 · 意志显化与元素掌控", bg: "#fdebd0", fg: "#c0392b", sub: "衔尾蛇·无穷大·四法器", symbol: "🪄", figure: "🧙‍♂️", upright: "主动创造、资源齐备、把想法化为行动", reversed: "才能被浪费、操纵欺骗、计划落地困难" },
+      { id: "major-02", num: "II", name: "THE HIGH PRIESTESS", desc: "女祭司 · 直觉深潜与神圣隐秘", bg: "#ebf5fb", fg: "#2980b9", sub: "黑白双柱·石榴幔·卷轴", symbol: "📜", figure: "👸", upright: "倾听直觉、保守的智慧、尚未显化的真相", reversed: "忽视内在声音、信息被隐瞒、情绪压抑" },
+      { id: "major-03", num: "III", name: "THE EMPRESS", desc: "女皇 · 自然丰饶与滋养创造", bg: "#fef9e7", fg: "#f39c12", sub: "十二星冠·金星盾·麦田", symbol: "👑", figure: "🤰", upright: "丰盛滋养、创造力旺盛、与自然和谐共处", reversed: "过度依赖、创造力受阻、忽略自我照顾" },
+      { id: "major-04", num: "IV", name: "THE EMPEROR", desc: "皇帝 · 秩序统御与坚固权柄", bg: "#fadbd8", fg: "#922b21", sub: "公羊石座·金球权杖·赤铠", symbol: "🏰", figure: "🤴", upright: "建立秩序、稳固权威、理性掌控局面", reversed: "专断固执、权力滥用、缺乏纪律" },
+      { id: "major-05", num: "V", name: "THE HIEROPHANT", desc: "教皇 · 精神传统与神圣盟约", bg: "#f5eef8", fg: "#6c3483", sub: "三重冠·交叉双匙·门徒", symbol: "🗝️", figure: "🧓", upright: "遵循传统、寻求指导、认同某种信念体系", reversed: "教条僵化、质疑权威、打破常规寻找自己的路" },
+      { id: "major-06", num: "VI", name: "THE LOVERS", desc: "恋人 · 灵魂契合与纯真抉择", bg: "#fdedec", fg: "#8e44ad", sub: "拉斐尔天使·善恶二树", symbol: "🕊️", figure: "👫", upright: "深刻连结、和谐关系、忠于内心的选择", reversed: "关系失衡、抉择犹豫不决、价值观冲突" },
+      { id: "major-07", num: "VII", name: "THE CHARIOT", desc: "战车 · 意志降服与坚定前行", bg: "#ebf5fb", fg: "#2471a3", sub: "双生斯芬克斯·星穹华盖", symbol: "🛡️", figure: "🏇", upright: "意志坚定、克服阻碍、乘胜追击", reversed: "方向迷失、内耗严重、缺乏自制力" },
+      { id: "major-08", num: "VIII", name: "STRENGTH", desc: "力量 · 柔性包容与内在刚强", bg: "#fefde8", fg: "#b7950b", sub: "抚狮白衣女·无限灵环", symbol: "🦁", figure: "👩‍🦰", upright: "以柔克刚、内在勇气、耐心驯服冲动", reversed: "自我怀疑、失去耐心、被恐惧支配" },
+      { id: "major-09", num: "IX", name: "THE HERMIT", desc: "隐士 · 内省探索与指路明灯", bg: "#eaeded", fg: "#2c3e50", sub: "雪峰孤影·六角星真理灯", symbol: "🏮", figure: "🧙", upright: "独处反思、寻求内在智慧、给自己指路", reversed: "过度孤立、逃避现实、拒绝他人帮助" },
+      { id: "major-10", num: "X", name: "WHEEL OF FORTUNE", desc: "命运之轮 · 宇宙演化与机运流转", bg: "#e8f8f5", fg: "#117864", sub: "希伯来四字神名·四象灵兽", symbol: "☸️", figure: "🦅", upright: "命运转折、把握时机、顺势而为", reversed: "时运不济、抗拒变化、恶性循环" },
+      { id: "major-11", num: "XI", name: "JUSTICE", desc: "正义 · 因果真理与绝对衡平", bg: "#fadbd8", fg: "#78281f", sub: "双刃立剑·神圣天平·紫帷", symbol: "⚖️", figure: "👩‍⚖️", upright: "公平公正、承担因果、理性判断", reversed: "有失公允、逃避责任、法律或决策纠纷" },
+      { id: "major-12", num: "XII", name: "THE HANGED MAN", desc: "倒吊人 · 顺服臣服与灵性觉醒", bg: "#eafaf1", fg: "#196f3d", sub: "生命之树·头顶觉悟光轮", symbol: "🌱", figure: "🤸", upright: "换个角度看问题、主动暂停、顺其自然", reversed: "停滞不前、无谓的牺牲、抗拒改变视角" },
+      { id: "major-13", num: "XIII", name: "DEATH", desc: "死神 · 彻底蜕变与新生破茧", bg: "#ebedef", fg: "#17202a", sub: "漆黑铁骑·神秘五瓣蔷薇", symbol: "💀", figure: "🐎", upright: "彻底转变、旧阶段结束、必要的放手", reversed: "抗拒结束、停滞在过去、变化被强行拖延" },
+      { id: "major-14", num: "XIV", name: "TEMPERANCE", desc: "节制 · 灵性炼金与调和之道", bg: "#e8f6f3", fg: "#148f77", sub: "单足入清泉·双杯生命流", symbol: "🏺", figure: "👼", upright: "平衡调和、耐心整合、循序渐进", reversed: "失衡走极端、缺乏耐心、内外冲突" },
+      { id: "major-15", num: "XV", name: "THE DEVIL", desc: "恶魔 · 执念欲望与物质枷锁", bg: "#2c3e50", fg: "#e74c3c", sub: "倒悬五角星·锁链男女", symbol: "🔥", figure: "👿", upright: "受困于欲望或依赖、物质诱惑、自我设限", reversed: "挣脱束缚、觉察上瘾模式、重获自由" },
+      { id: "major-16", num: "XVI", name: "THE TOWER", desc: "高塔 · 虚妄击碎与顿悟觉醒", bg: "#34495e", fg: "#f39c12", sub: "神罚烈雷·坠落黄金之冠", symbol: "⚡", figure: "🗼", upright: "剧变冲击、旧结构崩塌、突如其来的真相", reversed: "逃避必要的崩塌、压抑的危机、延迟的灾难" },
+      { id: "major-17", num: "XVII", name: "THE STAR", desc: "星星 · 希望之光与灵感甘霖", bg: "#ebf5fb", fg: "#2980b9", sub: "八角星宿·双壶溉泽天地", symbol: "⭐", figure: "🧜‍♀️", upright: "希望重燃、疗愈与灵感、对未来有信心", reversed: "信心受挫、理想幻灭、感到迷茫无助" },
+      { id: "major-18", num: "XVIII", name: "THE MOON", desc: "月亮 · 潜意识迷途与暗夜穿行", bg: "#283747", fg: "#f1c40f", sub: "狼犬吠月·原始龙虾出水", symbol: "🐺", figure: "🌕", upright: "直面潜意识、穿越迷雾与不确定", reversed: "被恐惧误导、真相逐渐浮现、走出幻觉" },
+      { id: "major-19", num: "XIX", name: "THE SUN", desc: "太阳 · 澄澈喜悦与生命荣耀", bg: "#fefde8", fg: "#d35400", sub: "盛放向日葵·白马赤子", symbol: "🌻", figure: "👶", upright: "喜悦成功、活力充沛、真实的自信", reversed: "暂时受挫、过度乐观、内在光芒被遮蔽" },
+      { id: "major-20", num: "XX", name: "JUDGEMENT", desc: "审判 · 命运召唤与彻底复活", bg: "#ebf5fb", fg: "#5b2c6f", sub: "大天使号角·破棺苏醒", symbol: "📯", figure: "🎺", upright: "觉醒反思、迎接召唤、自我重生", reversed: "自我批判过重、逃避召唤、对过去无法释怀" },
+      { id: "major-21", num: "XXI", name: "THE WORLD", desc: "世界 · 万象归一与圆满终章", bg: "#eafaf1", fg: "#1e8449", sub: "椭圆月桂冠·宇宙舞者", symbol: "🌿", figure: "💃", upright: "圆满完成、整合成就、进入新的循环", reversed: "功亏一篑、迟迟无法收尾、缺少最后一步" }
+    ];
+
+    const SUITS = [
+      { key: "WANDS", name: "WANDS", zh: "权杖", color: "#b34224", icon: "🪄", element: "火 ELEMENT OF FIRE", theme: "热情、行动与创造力" },
+      { key: "CUPS", name: "CUPS", zh: "圣杯", color: "#2980b9", icon: "🏆", element: "水 ELEMENT OF WATER", theme: "情感、关系与直觉" },
+      { key: "SWORDS", name: "SWORDS", zh: "宝剑", color: "#475463", icon: "⚔", element: "风 ELEMENT OF AIR", theme: "思维、沟通与冲突" },
+      { key: "PENTACLES", name: "PENTACLES", zh: "星币", color: "#d4ac0d", icon: "🪙", element: "土 ELEMENT OF EARTH", theme: "物质、事业与安全感" }
+    ];
+
+    const RANKS = [
+      { name: "ACE", num: "A", zh: "王牌", count: 1, title: "根源灵感", uprightHint: "全新的开端与纯粹的能量涌现", reversedHint: "机会被延误或尚未准备好把握" },
+      { name: "TWO", num: "2", zh: "二", count: 2, title: "两极平衡", uprightHint: "在两者之间寻找平衡与抉择", reversedHint: "犹豫不决、失衡或关系停滞" },
+      { name: "THREE", num: "3", zh: "三", count: 3, title: "初步显化", uprightHint: "初步成果显现、协作推进", reversedHint: "进展受阻、团队协作出现摩擦" },
+      { name: "FOUR", num: "4", zh: "四", count: 4, title: "稳固秩序", uprightHint: "建立稳固基础、短暂的休整", reversedHint: "停滞不前、过度求稳而错失变化" },
+      { name: "FIVE", num: "5", zh: "五", count: 5, title: "突破冲突", uprightHint: "冲突与竞争带来的成长", reversedHint: "冲突升级或迟迟无法和解" },
+      { name: "SIX", num: "6", zh: "六", count: 6, title: "分享胜利", uprightHint: "阶段性胜利、分享与和解", reversedHint: "胜利被推迟、旧账重提" },
+      { name: "SEVEN", num: "7", zh: "七", count: 7, title: "坚守抉择", uprightHint: "坚定立场、评估自己的选择", reversedHint: "自我怀疑、逃避该做的决定" },
+      { name: "EIGHT", num: "8", zh: "八", count: 8, title: "快速前行", uprightHint: "行动加速、突破限制", reversedHint: "行动受限、进度陷入拖延" },
+      { name: "NINE", num: "9", zh: "九", count: 9, title: "圆融守护", uprightHint: "接近圆满、守护已有成果", reversedHint: "过度防备、焦虑或孤立自己" },
+      { name: "TEN", num: "10", zh: "十", count: 10, title: "阶段完成", uprightHint: "一个阶段圆满完成", reversedHint: "负担过重、迟迟无法收尾" },
+      { name: "PAGE", num: "PAGE", zh: "侍从", count: 1, title: "纯真探索", uprightHint: "带着好奇心学习与探索新领域", reversedHint: "准备不足、三分钟热度" },
+      { name: "KNIGHT", num: "KNIGHT", zh: "骑士", count: 1, title: "勇往直前", uprightHint: "主动出击、朝目标全力冲刺", reversedHint: "行事鲁莽或半途而废" },
+      { name: "QUEEN", num: "QUEEN", zh: "王后", count: 1, title: "包容滋养", uprightHint: "以成熟与包容滋养他人和自己", reversedHint: "情绪化、过度付出后感到耗竭" },
+      { name: "KING", num: "KING", zh: "国王", count: 1, title: "成熟统御", uprightHint: "掌控全局、以经验做出决策", reversedHint: "专断或滥用权威、决策失误" }
+    ];
+
+    // 78 张 Rider–Waite–Smith 公版牌图。图片来源为公开的完整 RWS 牌组；
+    // 每张牌都使用独立 JPG 纹理，不再在 Canvas 中用 emoji / symbol 拼画正面。
+    const RWS_IMAGE_BASE = "https://raw.githubusercontent.com/seven102161/elaine-tarot-cards/main/cards/";
+    const MINOR_IMAGE_CODES = {
+      ACE: "ac", TWO: "02", THREE: "03", FOUR: "04", FIVE: "05",
+      SIX: "06", SEVEN: "07", EIGHT: "08", NINE: "09", TEN: "10",
+      PAGE: "pa", KNIGHT: "kn", QUEEN: "qu", KING: "ki"
+    };
+    const SUIT_IMAGE_CODES = { WANDS: "wa", CUPS: "cu", SWORDS: "sw", PENTACLES: "pe" };
+
+    function buildFull78Deck() {
+      const deck = [];
+      let idx = 0;
+
+      // 22 Major
+      MAJOR_ARCANA_DATA.forEach(m => {
+        deck.push({
+          uniqueId: idx++,
+          id: m.id,
+          number: m.num,
+          name: m.name,
+          desc: m.desc,
+          sub: m.sub,
+          arcana: "major",
+          suit: null,
+          rank: null,
+          themeColor: m.fg,
+          bgColor: m.bg,
+          symbol: m.symbol,
+          figure: m.figure || "✨",
+          uprightMeaning: m.upright,
+          reversedMeaning: m.reversed
+          ,frontTexture: `${RWS_IMAGE_BASE}ar${String(idx - 1).padStart(2, "0")}.jpg`
+        });
+      });
+
+      // 56 Minor
+      SUITS.forEach(suit => {
+        RANKS.forEach(rank => {
+          deck.push({
+            uniqueId: idx++,
+            id: `${suit.key.toLowerCase()}-${rank.num.toLowerCase()}`,
+            number: rank.num,
+            name: `${rank.name} OF ${suit.name}`,
+            desc: `${suit.zh}${rank.zh} · ${rank.title}`,
+            sub: suit.element,
+            arcana: "minor",
+            suit: suit.name,
+            rank: rank.name,
+            themeColor: suit.color,
+            bgColor: "#faf6ec",
+            suitIcon: suit.icon,
+            count: rank.count,
+            uprightMeaning: `${suit.theme}方面：${rank.uprightHint}`,
+            reversedMeaning: `${suit.theme}方面：${rank.reversedHint}`
+            ,frontTexture: `${RWS_IMAGE_BASE}${SUIT_IMAGE_CODES[suit.key]}${MINOR_IMAGE_CODES[rank.name]}.jpg`
+          });
+        });
+      });
+
+      return deck;
+    }
+
+    const FULL_78_DECK = buildFull78Deck();
+
+    // =========================================================================
+    // 2. 状态机与尺寸配置
+    // =========================================================================
+    const STATES = {
+      IDLE: 'IDLE',
+      SHUFFLING: 'SHUFFLING',
+      ORGANIZING: 'ORGANIZING',
+      SELECTING: 'SELECTING',
+      HOVERING: 'HOVERING',
+      SELECTED: 'SELECTED',
+      REVEALING: 'REVEALING',
+      REVEALED: 'REVEALED'
+    };
+
+    const CONFIG = {
+      cardCount: 78,
+      cardWidth: 1.45,
+      cardHeight: 2.55,
+      cardDepth: 0.02,
+      colors: {
+        bgBlackPurple: 0x050307,
+        deepViolet: 0x140624,
+        mysticViolet: 0x6b21a8,
+        lightViolet: 0xc084fc,
+      },
+      particles: {
+        ambientCount: 1100,
+        trailCount: 500,
+      }
+    };
+
+    // 纯正黑紫流动卡背 Shader
+    const CardBackShader = {
+      uniforms: {
+        uTime: { value: 0 },
+        uArtwork: { value: null },
+        uHover: { value: 0 },
+        uDim: { value: 0.0 },
+        uPurpleGlow: { value: new THREE.Color(0xa855f7) },
+        uDarkViolet: { value: new THREE.Color(0x0e041a) }
+      },
+      vertexShader: `
+        varying vec2 vUv;
+        void main() {
+          vUv = uv;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform float uTime;
+        uniform float uHover;
+        uniform float uDim;
+        uniform vec3 uPurpleGlow;
+        uniform vec3 uDarkViolet;
+        varying vec2 vUv;
+
+        uniform sampler2D uArtwork;
+        void main() {
+          vec3 artwork = texture2D(uArtwork,vUv).rgb;
+          float pattern = smoothstep(0.28,0.80,max(artwork.r,max(artwork.g,artwork.b)));
+          float centerLight = 1.0-smoothstep(0.0,0.75,length(vUv-0.5));
+          vec3 luminousPurple = mix(vec3(0.38,0.055,0.78),vec3(0.49,0.11,0.94),centerLight);
+          vec3 finalColor = mix(luminousPurple,vec3(0.90,0.70,1.0),pattern);
+          float border = min(min(vUv.x,1.0-vUv.x),min(vUv.y,1.0-vUv.y));
+          finalColor += uPurpleGlow * uHover * 0.75 * (1.0 - border);
+          finalColor = mix(finalColor, vec3(0.005,0.002,0.01),uDim);
+          gl_FragColor = vec4(finalColor,1.0-uDim*0.85);
+        }
+      `
+    };
+
+    // =========================================================================
+    // 3. 伟特塔罗图片纹理加载器
+    // =========================================================================
+    function createTextureNotice(title, subtitle) {
+      const canvas = document.createElement('canvas');
+      canvas.width = 512;
+      canvas.height = 880;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = "#f3ead2";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.strokeStyle = "#1a1208";
+      ctx.lineWidth = 8;
+      ctx.strokeRect(16, 16, canvas.width - 32, canvas.height - 32);
+      ctx.fillStyle = "#1a1208";
+      ctx.font = 'bold 30px Georgia, serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(title, canvas.width / 2, 410);
+      ctx.font = '18px Arial, sans-serif';
+      ctx.fillText(subtitle, canvas.width / 2, 455);
+
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.needsUpdate = true;
+      return texture;
+    }
+
+    // =========================================================================
+    // 4. 主程序组件
+    // =========================================================================
+    function arcCardPose(index, count, aspect) {
+      const t = count > 1 ? index / (count - 1) * 2 - 1 : 0;
+      const halfSpan = Math.max(1.4, Math.min(6.3, 5.25 * aspect - 1.0));
+      return { x: halfSpan * t, y: 0.10 + 1.6 * (1 - t*t), rotation: Math.atan(-3.2 * t / halfSpan) };
+    }
+
+    function createNeonSpread() {
+      const canvas = document.createElement('canvas');
+      canvas.width = canvas.height = 1024;
+      const ctx = canvas.getContext('2d');
+      ctx.translate(512,512);
+      ctx.strokeStyle = '#d5a0ff';
+      ctx.shadowColor = '#9d35ff';
+      ctx.shadowBlur = 23;
+      ctx.lineWidth = 2.8;
+      for (const radius of [456,440,421,340,328,294,155,143]) {
+        ctx.beginPath();ctx.arc(0,0,radius,0,Math.PI*2);ctx.stroke();
+      }
+      for (let offset=0;offset<2;offset++) {
+        ctx.beginPath();
+        for (let i=0;i<3;i++) {
+          const angle=-Math.PI/2+offset*Math.PI+ i*Math.PI*2/3;
+          const x=Math.cos(angle)*322,y=Math.sin(angle)*322;
+          if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
+        }
+        ctx.closePath();ctx.stroke();
+      }
+      for (let i=0;i<48;i++) {
+        const angle=i*Math.PI/24;
+        const inner=i%4===0?380:403;
+        ctx.beginPath();ctx.moveTo(Math.cos(angle)*inner,Math.sin(angle)*inner);
+        ctx.lineTo(Math.cos(angle)*418,Math.sin(angle)*418);ctx.stroke();
+      }
+      for(let i=0;i<12;i++) {
+        const a=i*Math.PI/6,x=Math.cos(a)*372,y=Math.sin(a)*372;
+        ctx.save();ctx.translate(x,y);ctx.rotate(a);
+        ctx.strokeRect(-8,-8,16,16);ctx.restore();
+      }
+      ctx.beginPath();ctx.arc(0,0,88,0,Math.PI*2);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(-120,0);ctx.lineTo(120,0);ctx.moveTo(0,-120);ctx.lineTo(0,120);ctx.stroke();
+      // Interlaced petals, rune bands and nested polygonal seals.
+      for(let i=0;i<12;i++) {
+        ctx.save();ctx.rotate(i*Math.PI/6);
+        ctx.beginPath();ctx.moveTo(0,-155);
+        ctx.bezierCurveTo(-92,-203,-50,-279,0,-293);
+        ctx.bezierCurveTo(50,-279,92,-203,0,-155);ctx.stroke();
+        ctx.restore();
+      }
+      for(let i=0;i<36;i++) {
+        ctx.save();ctx.rotate(i*Math.PI/18);ctx.translate(0,-359);
+        ctx.beginPath();ctx.moveTo(-6,-9);ctx.lineTo(-6,9);
+        ctx.moveTo(-6,-5);ctx.lineTo(7,-9);ctx.lineTo(4,1);ctx.lineTo(-6,5);
+        ctx.moveTo(0,1);ctx.lineTo(8,9);ctx.stroke();ctx.restore();
+      }
+      for(let offset=0;offset<2;offset++) {
+        ctx.beginPath();
+        for(let i=0;i<6;i++) {
+          const a=i*Math.PI/3+offset*Math.PI/6;
+          const x=Math.cos(a)*138,y=Math.sin(a)*138;
+          if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
+        }
+        ctx.closePath();ctx.stroke();
+      }
+      const texture=new THREE.CanvasTexture(canvas);
+      texture.colorSpace=THREE.SRGBColorSpace;
+      const material=new THREE.MeshBasicMaterial({map:texture,color:0xd5a0ff,transparent:true,opacity:0,depthWrite:false,blending:THREE.AdditiveBlending,toneMapped:false});
+      const mesh=new THREE.Mesh(new THREE.PlaneGeometry(10.5,3.5),material);
+      mesh.position.set(0,-2.75,-0.7);
+      return mesh;
+    }
+
+    function fingerGesture(landmarks) {
+      const vec=(a,b)=>[a.x-b.x,a.y-b.y,(a.z||0)-(b.z||0)];
+      const length=v=>Math.hypot(...v);
+      const distance=(a,b)=>length(vec(a,b));
+      const wrist=landmarks[0];
+      const palm=Math.max(distance(wrist,landmarks[9]),0.0001);
+      const extended=[[8,6,5],[12,10,9],[16,14,13],[20,18,17]].map(([tip,joint,base])=>{
+        const a=vec(landmarks[base],landmarks[joint]),b=vec(landmarks[tip],landmarks[joint]);
+        const cosine=a.reduce((v,n,i)=>v+n*b[i],0)/Math.max(length(a)*length(b),0.000001);
+        return cosine < -0.40 && distance(landmarks[tip],wrist)>distance(landmarks[joint],wrist)*1.02;
+      });
+      const count=extended.filter(Boolean).length;
+      if(count>=3)return 'OPEN';
+      if(extended[0])return 'POINT';
+      const folded=[8,12,16,20].reduce((v,i)=>v+distance(landmarks[i],wrist)/palm,0)/4;
+      return count<=1 && folded<1.55 ? 'FIST' : 'UNKNOWN';
+    }
+
+    function updateSelectionTarget(c, cards, tip, valid) {
+      let nextId = -1;
+      let nearest = 0.65;
+      if (valid) {
+        for (const card of cards) {
+          const distance = Math.abs(card.x - tip.x);
+          if (distance < nearest) { nearest = distance; nextId = card.id; }
+        }
+      }
+      const changed = nextId !== c.hoveredCardIndex;
+      if (changed || nextId === -1) c.hoverTimer = 0;
+      c.hoveredCardIndex = nextId;
+      return changed;
+    }
+
+    function DrawRitual({ disableCamera = false, positionLabel = null, onRevealed = null, onExit = null, drawIndex = 0 }) {
+      const callbackRef = useRef(onRevealed);
+      callbackRef.current = onRevealed;
+      const [remainingCount, setRemainingCount] = useState(FULL_78_DECK.length);
+      const mountRef = useRef(null);
+      const videoRef = useRef(null);
+      const camCanvasRef = useRef(null);
+
+      const [appState, setAppState] = useState(STATES.IDLE);
+      const [hoverProgress, setHoverProgress] = useState(0);
+      const [handDetected, setHandDetected] = useState(false);
+      const [currentGestureName, setCurrentGestureName] = useState("NONE");
+      const [revealedCard, setRevealedCard] = useState(null);
+
+      const core = useRef({
+        scene: null,
+        camera: null,
+        renderer: null,
+        cards: [],
+        particles: null,
+        trailParticles: null,
+        energyRing: null,
+        state: STATES.IDLE,
+        rawGesture: 'NONE',
+        gestureDuration: {
+          OPEN: 0,
+          FIST: 0,
+          POINT: 0
+        },
+        stateLockTimer: 0,
+        organizingTimer: 0,
+        hand: {
+          x: 0,
+          y: 0,
+          prevX: 0,
+          prevY: 0,
+          vx: 0,
+          vy: 0,
+          speed: 0,
+          worldPos: new THREE.Vector3(),
+          indexFingerTipWorld: new THREE.Vector3(),
+          detected: false
+        },
+        hoveredCardIndex: -1,
+        hoverTimer: 0,
+        selectedCard: null
+      });
+
+      useEffect(() => {
+        if (drawIndex === 0) return;
+        const c = core.current;
+        const selected = c.selectedCard;
+        if (!selected) return;
+        selected.mesh.visible = false;
+        const at = c.cards.indexOf(selected);
+        if (at >= 0) c.cards.splice(at, 1);
+        c.drawOrder = c.drawOrder.filter(card => card !== selected);
+        c.selectedCard = null;
+        c.hoveredCardIndex = -1;
+        c.hoverTimer = 0;
+        c.organizingTimer = 0;
+        c.stateLockTimer = 0.5;
+        c.state = STATES.ORGANIZING;
+        c.gestureDuration = { OPEN: 0, FIST: 0, POINT: 0 };
+        c.cards.forEach(card => { card.isHovered = false; card.vx = card.vy = card.vRotZ = 0; });
+        setRemainingCount(c.cards.length);
+        setHoverProgress(0);
+        setRevealedCard(null);
+        setAppState(STATES.ORGANIZING);
+      }, [drawIndex]);
+
+      useEffect(() => {
+        const currentMount = mountRef.current;
+        const width = currentMount.clientWidth;
+        const height = currentMount.clientHeight;
+
+        // 1. 初始化 WebGL
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(CONFIG.colors.bgBlackPurple, 0.035);
+
+        const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
+        camera.position.set(0, 0, 15);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: "high-performance" });
+        renderer.setSize(width, height);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.25;
+        renderer.outputColorSpace = THREE.SRGBColorSpace;
+        renderer.shadowMap.enabled = true;
+        currentMount.appendChild(renderer.domElement);
+
+        core.current.scene = scene;
+        core.current.camera = camera;
+        core.current.renderer = renderer;
+
+        // 2. 空间灯光系统
+        const ambientLight = new THREE.AmbientLight(0x4a1e75, 1.2);
+        scene.add(ambientLight);
+
+        const violetSpot = new THREE.SpotLight(0xa855f7, 4.5, 35, Math.PI / 3.5, 0.6, 1);
+        violetSpot.position.set(0, 8, 9);
+        scene.add(violetSpot);
+
+        const frontKeyLight = new THREE.DirectionalLight(0xfff8ee, 1.6);
+        frontKeyLight.position.set(0, 2, 10);
+        scene.add(frontKeyLight);
+
+        // 3. 构建 78 张卡牌：正面绑定伟特图案 + 背面黑紫 Shader
+        const cardGeometry = new THREE.BoxGeometry(CONFIG.cardWidth, CONFIG.cardHeight, CONFIG.cardDepth);
+        const cardMaterialSide = new THREE.MeshStandardMaterial({
+          color: 0x11071c,
+          metalness: 0.85,
+          roughness: 0.3
+        });
+
+        const cards = [];
+        const textureLoader = new THREE.TextureLoader();
+        textureLoader.setCrossOrigin('anonymous');
+        const loadingTexture = createTextureNotice('RWS TAROT', 'Loading original card artwork…');
+        const magicBackTexture = textureLoader.load('data:image/svg+xml;charset=utf-8,' + encodeURIComponent("<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"580\" height=\"1000\" viewBox=\"0 0 580 1000\"><defs><radialGradient id=\"bg\"><stop stop-color=\"#25103e\"/><stop offset=\"1\" stop-color=\"#080210\"/></radialGradient><filter id=\"glow\" x=\"-30%\" y=\"-30%\" width=\"160%\" height=\"160%\"><feGaussianBlur stdDeviation=\"5\" result=\"blur\"/><feMerge><feMergeNode in=\"blur\"/><feMergeNode in=\"SourceGraphic\"/></feMerge></filter></defs><rect width=\"580\" height=\"1000\" rx=\"24\" fill=\"url(#bg)\"/><g fill=\"none\" stroke=\"#b86aff\" filter=\"url(#glow)\"><rect x=\"23\" y=\"23\" width=\"534\" height=\"954\" rx=\"18\" stroke-width=\"2\"/><rect x=\"36\" y=\"36\" width=\"508\" height=\"928\" rx=\"12\" stroke-width=\"0.8\"/><g transform=\"translate(290 500)\"><circle r=\"149\" stroke-width=\"1.5\"/><circle r=\"160\" stroke-width=\"0.7\"/><polygon points=\"0.000,-131.000 113.449,65.500 -113.449,65.500\" fill=\"#822ec21a\" stroke=\"#d39cff\" stroke-width=\"3\"/><polygon points=\"0.000,131.000 -113.449,-65.500 113.449,-65.500\" fill=\"#822ec21a\" stroke=\"#d39cff\" stroke-width=\"3\"/></g><path d=\"M 290 142 L 300 158 L 290 174 L 280 158 Z\" stroke-width=\"1.5\"/><path d=\"M 290 826 L 300 842 L 290 858 L 280 842 Z\" stroke-width=\"1.5\"/></g></svg>"));
+        FULL_78_DECK.forEach((cardData, i) => {
+          const frontMaterial = new THREE.MeshBasicMaterial({
+            map: loadingTexture,
+            toneMapped: false,
+            transparent: false,
+            color: 0xffffff
+          });
+
+          textureLoader.load(
+            cardData.frontTexture,
+            (frontTexture) => {
+              frontTexture.colorSpace = THREE.SRGBColorSpace;
+              frontTexture.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+              frontTexture.minFilter = THREE.LinearMipmapLinearFilter;
+              frontTexture.magFilter = THREE.LinearFilter;
+              frontMaterial.map = frontTexture;
+              frontMaterial.needsUpdate = true;
+              cardData.textureLoaded = true;
+            },
+            undefined,
+            () => {
+              frontMaterial.map = createTextureNotice(cardData.name, 'Card image could not be loaded');
+              frontMaterial.needsUpdate = true;
+              cardData.textureLoadError = true;
+              console.error(`RWS image failed to load: ${cardData.frontTexture}`);
+            }
+          );
+
+          const backShaderMaterial = new THREE.ShaderMaterial({
+            uniforms: THREE.UniformsUtils.clone(CardBackShader.uniforms),
+            vertexShader: CardBackShader.vertexShader,
+            fragmentShader: CardBackShader.fragmentShader,
+            transparent: true
+          });
+
+          backShaderMaterial.uniforms.uArtwork.value = magicBackTexture;
+
+          const materials = [
+            cardMaterialSide,
+            cardMaterialSide,
+            cardMaterialSide,
+            cardMaterialSide,
+            frontMaterial,       // 正面：真实伟特原版图案
+            backShaderMaterial   // 背面：黑紫 Shader
+          ];
+
+          const mesh = new THREE.Mesh(cardGeometry, materials);
+          mesh.castShadow = true;
+          mesh.receiveShadow = true;
+
+          const cardObj = {
+            id: i,
+            cardData: cardData,
+            mesh: mesh,
+            x: (Math.random() - 0.5) * 0.4,
+            y: (Math.random() - 0.5) * 0.4,
+            z: i * 0.008,
+            vx: (Math.random() - 0.5) * 0.02,
+            vy: (Math.random() - 0.5) * 0.02,
+            vz: 0,
+            rotZ: (Math.random() - 0.5) * 0.1,
+            vRotZ: (Math.random() - 0.5) * 0.01,
+            rotX: 0,
+            rotY: Math.PI, // 初始背面朝上
+            targetRotY: Math.PI,
+            targetRotX: 0,
+            isHovered: false,
+            scale: 1,
+            targetScale: 1,
+            damping: 0.94,
+            targetX: 0,
+            targetY: 0,
+            targetZ: 0,
+            dimValue: 0.0
+          };
+
+          mesh.position.set(cardObj.x, cardObj.y, cardObj.z);
+          mesh.rotation.y = Math.PI;
+          scene.add(mesh);
+          cards.push(cardObj);
+        });
+        if (cards.length !== 78 || new Set(cards.map(card => card.cardData.id)).size !== 78) {
+          throw new Error('Expected 78 unique tarot cards');
+        }
+        core.current.cards = cards;
+        core.current.drawOrder = [];
+        const animatedBackdrop = new THREE.Mesh(new THREE.PlaneGeometry(42,28),new THREE.ShaderMaterial({
+          uniforms:{uTime:{value:0},uOpacity:{value:0.6}},
+          vertexShader:`varying vec2 vUv; void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
+          fragmentShader:`varying vec2 vUv; uniform float uTime; uniform float uOpacity;
+            void main(){vec2 p=vUv*2.0-1.0;float t=uTime*0.65;
+              float ribbon=exp(-abs(p.y-0.30*sin(p.x*4.0+t)-0.15*cos(p.x*7.0-t))*8.0);
+              float veil=exp(-abs(p.y+0.34*sin(p.x*3.0-t*0.8)+0.22)*5.0);
+              float fade=1.0-smoothstep(0.6,1.4,length(p));
+              vec3 color=mix(vec3(0.27,0.04,0.65),vec3(0.61,0.20,0.90),ribbon);
+              gl_FragColor=vec4(color,(ribbon*0.45+veil*0.20)*fade*uOpacity);}`,
+          transparent:true,depthWrite:false,blending:THREE.AdditiveBlending
+        }));
+        animatedBackdrop.position.z=-9;
+        scene.add(animatedBackdrop);
+        const neonSpread = createNeonSpread();
+        scene.add(neonSpread);
+
+        // 4. GPU 黑紫环境粒子系统
+        const particleGeo = new THREE.BufferGeometry();
+        const pCount = CONFIG.particles.ambientCount;
+        const pPositions = new Float32Array(pCount * 3);
+        const pScales = new Float32Array(pCount);
+        const pVelocities = new Float32Array(pCount * 3);
+
+        for (let i = 0; i < pCount; i++) {
+          pPositions[i * 3] = (Math.random() - 0.5) * 34;
+          pPositions[i * 3 + 1] = (Math.random() - 0.5) * 22;
+          pPositions[i * 3 + 2] = (Math.random() - 0.5) * 16 - 2;
+          pScales[i] = Math.random() * 0.04 + 0.01;
+          pVelocities[i * 3] = (Math.random() - 0.5) * 0.004;
+          pVelocities[i * 3 + 1] = (Math.random() - 0.5) * 0.004 + 0.002;
+          pVelocities[i * 3 + 2] = (Math.random() - 0.5) * 0.004;
+        }
+
+        particleGeo.setAttribute('position', new THREE.BufferAttribute(pPositions, 3));
+        particleGeo.setAttribute('scale', new THREE.BufferAttribute(pScales, 1));
+
+        const particleMat = new THREE.PointsMaterial({
+          color: 0xa855f7,
+          size: 0.08,
+          transparent: true,
+          opacity: 0.65,
+          blending: THREE.AdditiveBlending
+        });
+
+        const ambientParticlesMesh = new THREE.Points(particleGeo, particleMat);
+        scene.add(ambientParticlesMesh);
+        core.current.particles = { mesh: ambientParticlesMesh, pos: pPositions, vel: pVelocities };
+
+        // 5. 手势交互粒子尾迹
+        const trailGeo = new THREE.BufferGeometry();
+        const trailCount = CONFIG.particles.trailCount;
+        const trailPositions = new Float32Array(trailCount * 3);
+        const trailLifes = new Float32Array(trailCount);
+        const trailVels = new Float32Array(trailCount * 3);
+
+        for (let i = 0; i < trailCount; i++) {
+          trailLifes[i] = 0.0;
+        }
+        trailGeo.setAttribute('position', new THREE.BufferAttribute(trailPositions, 3));
+        const trailMat = new THREE.PointsMaterial({
+          color: 0xc084fc,
+          size: 0.12,
+          transparent: true,
+          opacity: 0.8,
+          blending: THREE.AdditiveBlending
+        });
+        const trailMesh = new THREE.Points(trailGeo, trailMat);
+        scene.add(trailMesh);
+        core.current.trailParticles = { mesh: trailMesh, pos: trailPositions, life: trailLifes, vels: trailVels };
+
+        // 6. 紫色 5 秒选择能量环
+        const ringGeo = new THREE.RingGeometry(1.4, 1.55, 64);
+        const ringMat = new THREE.MeshBasicMaterial({
+          color: 0xc084fc,
+          side: THREE.DoubleSide,
+          transparent: true,
+          opacity: 0,
+          blending: THREE.AdditiveBlending
+        });
+        const energyRing = new THREE.Mesh(ringGeo, ringMat);
+        energyRing.visible = false;
+        scene.add(energyRing);
+        core.current.energyRing = energyRing;
+
+        // 7. MediaPipe Hands 追踪集成
+        let hands = null;
+        let cameraStream = null;
+
+        if (!disableCamera && window.Hands) {
+          hands = new window.Hands({
+            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`,
+          });
+
+          hands.setOptions({
+            maxNumHands: 1,
+            modelComplexity: 1,
+            minDetectionConfidence: 0.65,
+            minTrackingConfidence: 0.65,
+          });
+
+          hands.onResults((results) => {
+            const ctx = camCanvasRef.current?.getContext('2d');
+            if (ctx && camCanvasRef.current) {
+              ctx.clearRect(0, 0, camCanvasRef.current.width, camCanvasRef.current.height);
+              if (results.image) {
+                ctx.drawImage(results.image, 0, 0, camCanvasRef.current.width, camCanvasRef.current.height);
+              }
+            }
+
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+              core.current.cameraTrackedAt = performance.now();
+              core.current.hand.source = 'camera';
+              setHandDetected(true);
+              const landmarks = results.multiHandLandmarks[0];
+
+              if (ctx) {
+                drawHandSkeleton(ctx, landmarks, camCanvasRef.current.width, camCanvasRef.current.height);
+              }
+
+              interpretStrictGesture(landmarks);
+            } else {
+              core.current.cameraTrackedAt = 0;
+              setHandDetected(false);
+              core.current.rawGesture = 'NONE';
+              setCurrentGestureName('NONE');
+            }
+          });
+
+          if (videoRef.current) {
+            cameraStream = new window.Camera(videoRef.current, {
+              onFrame: async () => {
+                if (videoRef.current && hands) {
+                  await hands.send({ image: videoRef.current });
+                }
+              },
+              width: 320,
+              height: 240,
+            });
+            cameraStream.start().catch((err) => {
+              console.warn("Camera fallback active:", err);
+            });
+          }
+        }
+
+        function drawHandSkeleton(ctx, landmarks, w, h) {
+          ctx.strokeStyle = '#a855f7';
+          ctx.lineWidth = 2;
+          ctx.fillStyle = '#c084fc';
+
+          const connections = [
+            [0,1],[1,2],[2,3],[3,4],
+            [0,5],[5,6],[6,7],[7,8],
+            [0,9],[9,10],[10,11],[11,12],
+            [0,13],[13,14],[14,15],[15,16],
+            [0,17],[17,18],[18,19],[19,20]
+          ];
+
+          connections.forEach(([i, j]) => {
+            ctx.beginPath();
+            ctx.moveTo(landmarks[i].x * w, landmarks[i].y * h);
+            ctx.lineTo(landmarks[j].x * w, landmarks[j].y * h);
+            ctx.stroke();
+          });
+
+          landmarks.forEach((lm) => {
+            ctx.beginPath();
+            ctx.arc(lm.x * w, lm.y * h, 3, 0, Math.PI * 2);
+            ctx.fill();
+          });
+        }
+
+        function interpretStrictGesture(landmarks) {
+          const indexTip = landmarks[8];
+          const detected = fingerGesture(landmarks);
+          core.current.rawGesture = detected;
+          setCurrentGestureName(detected);
+
+          const rawPalmX = (landmarks[9].x + landmarks[0].x) / 2;
+          const rawPalmY = (landmarks[9].y + landmarks[0].y) / 2;
+
+          const normPalmX = (1.0 - rawPalmX) * 2 - 1;
+          const normPalmY = -(rawPalmY * 2 - 1);
+
+          const normIndexX = (1.0 - indexTip.x) * 2 - 1;
+          const normIndexY = -(indexTip.y * 2 - 1);
+
+          updateHandCoordinates(normPalmX, normPalmY, normIndexX, normIndexY);
+        }
+
+        function updateHandCoordinates(normX, normY, indexNormX, indexNormY) {
+          const h = core.current.hand;
+          const now = performance.now();
+          const rawTravel = Math.hypot(normX-(h.rawX ?? normX),normY-(h.rawY ?? normY));
+          if(rawTravel>0.003)h.lastMotionAt=now;
+          h.rawX=normX;h.rawY=normY;
+          const alpha = 0.35;
+
+          h.prevX = h.x;
+          h.prevY = h.y;
+          h.x = h.x + (normX - h.x) * alpha;
+          h.y = h.y + (normY - h.y) * alpha;
+
+          h.vx = h.x - h.prevX;
+          h.vy = h.y - h.prevY;
+          h.speed = Math.sqrt(h.vx * h.vx + h.vy * h.vy);
+          h.detected = true;
+
+          h.worldPos.set(h.x * 8.5, h.y * 5.0, 0);
+          const selectionY = Math.tan(camera.fov*Math.PI/360) * (camera.position.z-0.5);
+          h.indexFingerTipWorld.set(indexNormX * selectionY * camera.aspect,indexNormY * selectionY,0);
+
+          if (h.speed > 0.004) {
+            spawnTrailParticles(h.worldPos.x, h.worldPos.y, h.vx, h.vy);
+          }
+        }
+
+        function spawnTrailParticles(x, y, vx, vy) {
+          const tp = core.current.trailParticles;
+          for (let k = 0; k < 2; k++) {
+            const idx = Math.floor(Math.random() * CONFIG.particles.trailCount);
+            tp.pos[idx * 3] = x + (Math.random() - 0.5) * 0.3;
+            tp.pos[idx * 3 + 1] = y + (Math.random() - 0.5) * 0.3;
+            tp.pos[idx * 3 + 2] = (Math.random() - 0.5) * 0.4;
+            tp.vels[idx * 3] = vx * 0.4 + (Math.random() - 0.5) * 0.02;
+            tp.vels[idx * 3 + 1] = vy * 0.4 + (Math.random() - 0.5) * 0.02;
+            tp.vels[idx * 3 + 2] = (Math.random() - 0.5) * 0.02;
+            tp.life[idx] = 1.0;
+          }
+          tp.mesh.geometry.attributes.position.needsUpdate = true;
+        }
+
+        // 鼠标降级支持
+        let isMouseDown = false;
+        const handleMouseDown = (e) => {
+          isMouseDown = true;
+          handleMouseMove(e);
+        };
+        const handleMouseUp = () => {
+          isMouseDown = false;
+          core.current.hand.pendingX = core.current.hand.pendingY = 0;
+          core.current.hand.vx = core.current.hand.vy = core.current.hand.speed = 0;
+          if (core.current.rawGesture === 'OPEN') core.current.rawGesture = 'POINT';
+        };
+        const handleMouseMove = (e) => {
+          if (core.current.cameraTrackedAt && performance.now() - core.current.cameraTrackedAt < 250) return;
+          core.current.hand.source = 'mouse';
+
+          const normX = (e.clientX / window.innerWidth) * 2 - 1;
+          const normY = -(e.clientY / window.innerHeight) * 2 + 1;
+
+          if (isMouseDown) {
+            core.current.rawGesture = 'OPEN';
+          } else {
+            core.current.rawGesture = 'POINT';
+          }
+          setCurrentGestureName(core.current.rawGesture);
+          updateHandCoordinates(normX, normY, normX, normY);
+        };
+        const handleDblClick = () => {
+          if (core.current.state === STATES.SHUFFLING) {
+            core.current.rawGesture = 'FIST';
+          }
+        };
+
+        window.addEventListener('mousedown', handleMouseDown);
+        window.addEventListener('mouseup', handleMouseUp);
+        window.addEventListener('mousemove', handleMouseMove);
+        window.addEventListener('dblclick', handleDblClick);
+
+        const handleResize = () => {
+          const w = currentMount.clientWidth;
+          const h = currentMount.clientHeight;
+          camera.aspect = w / h;
+          camera.updateProjectionMatrix();
+          renderer.setSize(w, h);
+        };
+        window.addEventListener('resize', handleResize);
+
+        // =========================================================================
+        // 5. 渲染与物理模拟主循环
+        // =========================================================================
+        let clock = new THREE.Clock();
+        let animationFrameId;
+        let revealTimeout;
+
+        const animate = () => {
+          animationFrameId = requestAnimationFrame(animate);
+          const dt = Math.min(clock.getDelta(), 0.1);
+          const elapsedTime = clock.getElapsedTime();
+
+          const c = core.current;
+          const hand = c.hand;
+
+          if (c.stateLockTimer > 0) {
+            c.stateLockTimer -= dt;
+          }
+
+          const cameraFresh = c.cameraTrackedAt && performance.now() - c.cameraTrackedAt < 450;
+          const shuffleMotion = performance.now()-(hand.lastMotionAt || 0)<120 && hand.speed>0.003;
+          const raw = hand.source === 'camera' && !cameraFresh ? 'NONE' : c.rawGesture;
+          c.gestureDuration.OPEN = raw === 'OPEN' ? c.gestureDuration.OPEN + dt : 0;
+          c.gestureDuration.FIST = raw === 'FIST' ? c.gestureDuration.FIST + dt : 0;
+          c.gestureDuration.POINT = raw === 'POINT' ? c.gestureDuration.POINT + dt : 0;
+
+          // 状态机管理
+          if (c.stateLockTimer <= 0) {
+            if (c.state === STATES.IDLE) {
+              if (c.gestureDuration.OPEN >= 0.08) {
+                if(cards.length!==78 || new Set(cards.map(card=>card.cardData.id)).size!==78) {
+                  throw new Error('洗牌必须包含完整的78张不同卡牌');
+                }
+                c.state = STATES.SHUFFLING;
+                setAppState(STATES.SHUFFLING);
+                c.stateLockTimer = 0.3;
+
+                // Opening a palm wakes the table; only actual hand travel pushes the cards.
+                cards.forEach(card => { card.vx=0;card.vy=0;card.vRotZ=0; });
+              }
+            } 
+            else if (c.state === STATES.SHUFFLING) {
+              if (c.gestureDuration.FIST >= 0.4) {
+                c.state = STATES.ORGANIZING;
+                setAppState(STATES.ORGANIZING);
+                c.stateLockTimer = 1.6;
+                c.organizingTimer = 0;
+                c.drawOrder = [...cards].sort((a, b) => a.x - b.x);
+              }
+            } 
+            else if (c.state === STATES.ORGANIZING) {
+              c.organizingTimer += dt;
+              if (c.organizingTimer >= 1.4) {
+                c.state = STATES.SELECTING;
+                setAppState(STATES.SELECTING);
+              }
+            } 
+            // A spread keeps this one deck until all positions are filled.
+          }
+
+          // 物理模拟：大面积分散 Wash Shuffle 与从左到右自然排列
+          const handRadius = 3.2;
+          const sortedCardsByRealPos = c.drawOrder;
+
+          // Resolve the pointed card once per frame, before animating any cards.
+          let selectionChanged = false;
+          if (c.state === STATES.SELECTING || c.state === STATES.HOVERING) {
+            const validPointer = hand.source === 'camera'
+              ? cameraFresh && raw === 'POINT' && c.gestureDuration.POINT > 0.08
+              : hand.source === 'mouse' && raw === 'POINT';
+            selectionChanged = updateSelectionTarget(c, cards, hand.indexFingerTipWorld, validPointer);
+            if (selectionChanged || c.hoveredCardIndex === -1) {
+              setHoverProgress(0);
+              if (c.energyRing) c.energyRing.visible = false;
+            }
+          }
+
+          cards.forEach((card, idx) => {
+            if (card.mesh.material[5].uniforms) {
+              card.mesh.material[5].uniforms.uTime.value = elapsedTime;
+            }
+
+            if (c.state === STATES.SHUFFLING && (c.shuffleStarted || shuffleMotion)) {
+              c.shuffleStarted = true;
+              const dx = card.x - hand.worldPos.x;
+              const dy = card.y - hand.worldPos.y;
+              const dist = Math.sqrt(dx * dx + dy * dy);
+
+              if (shuffleMotion && dist < handRadius) {
+                const forceFactor = (1.0 - dist / handRadius);
+                card.vx += (hand.vx * 35.0 * forceFactor) + (Math.random() - 0.5) * 0.06;
+                card.vy += (hand.vy * 35.0 * forceFactor) + (Math.random() - 0.5) * 0.06;
+                card.vRotZ += (hand.vx * -10.0 + (Math.random() - 0.5) * 0.3) * forceFactor;
+              }
+
+              const boundX = 6.8;
+              const boundY = 3.8;
+              if (card.x > boundX) card.vx -= (card.x - boundX) * 0.05;
+              if (card.x < -boundX) card.vx -= (card.x + boundX) * 0.05;
+              if (card.y > boundY) card.vy -= (card.y - boundY) * 0.05;
+              if (card.y < -boundY) card.vy -= (card.y + boundY) * 0.05;
+
+              for (let j = idx + 1; j < Math.min(idx + 8, cards.length); j++) {
+                const other = cards[j];
+                const cdx = other.x - card.x;
+                const cdy = other.y - card.y;
+                const cdist = Math.sqrt(cdx * cdx + cdy * cdy);
+                const minDist = 0.85;
+                if ((shuffleMotion || Math.hypot(card.vx,card.vy)>0.002) && cdist < minDist && cdist > 0.001) {
+                  const overlap = (minDist - cdist) * 0.5;
+                  const nx = cdx / cdist;
+                  const ny = cdy / cdist;
+                  card.vx -= nx * overlap * 0.22;
+                  card.vy -= ny * overlap * 0.22;
+                  other.vx += nx * overlap * 0.22;
+                  other.vy += ny * overlap * 0.22;
+                }
+              }
+
+              card.vx *= card.damping;
+              card.vy *= card.damping;
+              card.vRotZ *= 0.88;
+
+              card.x += card.vx;
+              card.y += card.vy;
+              card.rotZ += card.vRotZ;
+              card.z = THREE.MathUtils.lerp(card.z, (idx - 39) * 0.008, 0.1);
+              card.targetRotY = Math.PI;
+              card.targetRotX = 0;
+              card.targetScale = 1.0;
+              card.dimValue = 0.0;
+
+            } else if (c.state === STATES.ORGANIZING || c.state === STATES.SELECTING || c.state === STATES.HOVERING) {
+              const spreadIndex = sortedCardsByRealPos.indexOf(card);
+              const pose = arcCardPose(spreadIndex,cards.length,camera.aspect);
+              card.targetX = pose.x;
+              card.targetY = pose.y;
+              card.targetZ = spreadIndex * 0.012;
+              card.targetRotY = Math.PI;
+              card.targetRotX = 0;
+              card.targetScale = 1.0;
+              card.dimValue = 0.0;
+
+              const delayFactor = spreadIndex / cards.length;
+              const lerpSpeed = Math.max(0.035, Math.min(0.12, 0.11 - delayFactor * 0.04));
+
+              card.x = THREE.MathUtils.lerp(card.x, card.targetX, lerpSpeed);
+              card.y = THREE.MathUtils.lerp(card.y, card.targetY, lerpSpeed);
+              card.z = THREE.MathUtils.lerp(card.z, card.targetZ, 0.08);
+              card.rotZ = THREE.MathUtils.lerp(card.rotZ, pose.rotation, 0.1);
+              card.rotX = THREE.MathUtils.lerp(card.rotX, 0, 0.1);
+            }
+
+            // 单食指选牌跟随与高亮
+            if (c.state === STATES.SELECTING || c.state === STATES.HOVERING) {
+              if (c.hoveredCardIndex === card.id) {
+                card.isHovered = true;
+                card.targetY += 0.95;
+                card.targetZ += 0.55;
+                card.targetScale = 1.15;
+              } else {
+                card.isHovered = false;
+                if (c.hoveredCardIndex !== -1) {
+                  const hCard = cards.find(item => item.id === c.hoveredCardIndex);
+                  if (hCard) {
+                    const diffX = card.x - hCard.x;
+                    if (Math.abs(diffX) < 1.2 && Math.abs(diffX) > 0.01) {
+                      card.targetX += Math.sign(diffX) * 0.12;
+                    }
+                  }
+                }
+              }
+            }
+
+            if (card.mesh.material[5].uniforms) {
+              const currentHoverU = card.mesh.material[5].uniforms.uHover.value;
+              card.mesh.material[5].uniforms.uHover.value = THREE.MathUtils.lerp(
+                currentHoverU,
+                card.isHovered ? 1.0 : 0.0,
+                0.2
+              );
+            }
+
+            // 翻牌至真实正面：旋转至 Y=0 展现真实 RWS 正面图案
+            if (c.state === STATES.REVEALING || c.state === STATES.REVEALED) {
+              if (card === c.selectedCard) {
+                card.targetX = 0;
+                card.targetY = 0.35;
+                card.targetZ = 7.6;
+                card.targetRotY = 0; // 真实旋转 180 度到 0 度，正面对准摄像机
+                card.targetScale = 2.45; // 放大至屏幕高度 55%~60%
+                card.dimValue = 0.0;
+
+                if (c.state === STATES.REVEALED) {
+                  card.targetY = 0.35 + Math.sin(elapsedTime * 2.2) * 0.06;
+                  card.rotZ = Math.sin(elapsedTime * 1.4) * 0.015;
+                }
+              } else {
+                const dir = card.id < c.selectedCard.id ? -1 : 1;
+                const offset = Math.abs(card.id - c.selectedCard.id);
+                card.targetX = (card.id < c.selectedCard.id ? -8.5 : 8.5) + dir * (offset * 0.05);
+                card.targetY = -2.6;
+                card.targetZ = -5.0;
+                card.targetScale = 0.55;
+                card.dimValue = 0.9;
+              }
+
+              card.x = THREE.MathUtils.lerp(card.x, card.targetX, 0.06);
+              card.y = THREE.MathUtils.lerp(card.y, card.targetY, 0.06);
+              card.z = THREE.MathUtils.lerp(card.z, card.targetZ, 0.06);
+              card.rotZ = THREE.MathUtils.lerp(card.rotZ, 0, 0.08);
+            }
+
+            card.scale = THREE.MathUtils.lerp(card.scale, card.targetScale, 0.12);
+            card.rotY = THREE.MathUtils.lerp(card.rotY, card.targetRotY, 0.08);
+            card.rotX = THREE.MathUtils.lerp(card.rotX, card.targetRotX, 0.08);
+
+            if (card.mesh.material[5].uniforms) {
+              card.mesh.material[5].uniforms.uDim.value = THREE.MathUtils.lerp(
+                card.mesh.material[5].uniforms.uDim.value,
+                card.dimValue,
+                0.08
+              );
+            }
+
+            card.mesh.position.set(card.x, card.y, card.z);
+            card.mesh.rotation.set(card.rotX, card.rotY, card.rotZ);
+            card.mesh.scale.setScalar(card.scale);
+          });
+
+          // 5 秒停留选择确认
+          if (c.state === STATES.SELECTING || c.state === STATES.HOVERING) {
+            if (c.hoveredCardIndex !== -1 && hand.speed < 0.018) {
+              c.state = STATES.HOVERING;
+              setAppState(STATES.HOVERING);
+              if (!selectionChanged) c.hoverTimer += dt;
+              const progress = Math.min(c.hoverTimer / 5.0, 1.0);
+              setHoverProgress(progress);
+
+              const hCard = cards.find(item => item.id === c.hoveredCardIndex);
+              if (hCard && c.energyRing) {
+                c.energyRing.visible = true;
+                c.energyRing.position.set(hCard.x, hCard.y, hCard.z + 0.1);
+                c.energyRing.rotation.z = elapsedTime * 1.5;
+                c.energyRing.material.opacity = progress * 0.95;
+                const ringScale = 0.7 + progress * 0.35;
+                c.energyRing.scale.set(ringScale, ringScale, 1.0);
+              }
+
+              if (c.hoverTimer >= 5.0) {
+                c.state = STATES.REVEALING;
+                setAppState(STATES.REVEALING);
+                c.selectedCard = hCard;
+                setRevealedCard(hCard.cardData);
+
+                if (c.energyRing) c.energyRing.visible = false;
+
+                spawnBurstParticles(hCard.x, hCard.y);
+
+                revealTimeout = setTimeout(() => {
+                  c.state = STATES.REVEALED;
+                  setAppState(STATES.REVEALED);
+                  if (callbackRef.current) callbackRef.current(hCard.cardData);
+                }, 1200);
+              }
+            } else {
+              c.hoverTimer = 0;
+              setHoverProgress(0);
+              if (c.energyRing) c.energyRing.visible = false;
+              if (c.state === STATES.HOVERING) {
+                c.state = STATES.SELECTING;
+                setAppState(STATES.SELECTING);
+              }
+            }
+          }
+
+          function spawnBurstParticles(x, y) {
+            const tp = c.trailParticles;
+            for (let i = 0; i < CONFIG.particles.trailCount; i++) {
+              tp.pos[i * 3] = x;
+              tp.pos[i * 3 + 1] = y;
+              tp.pos[i * 3 + 2] = 2.0;
+              const angle = Math.random() * Math.PI * 2;
+              const force = Math.random() * 0.22 + 0.08;
+              tp.vels[i * 3] = Math.cos(angle) * force;
+              tp.vels[i * 3 + 1] = Math.sin(angle) * force;
+              tp.vels[i * 3 + 2] = (Math.random() - 0.5) * 0.15;
+              tp.life[i] = 1.0;
+            }
+          }
+
+          // 粒子系统模拟
+          const ap = c.particles;
+          for (let i = 0; i < CONFIG.particles.ambientCount; i++) {
+            ap.pos[i * 3 + 1] += ap.vel[i * 3 + 1];
+            ap.pos[i * 3] += Math.sin(elapsedTime + i) * 0.002;
+            if (ap.pos[i * 3 + 1] > 11) ap.pos[i * 3 + 1] = -11;
+          }
+          ap.mesh.geometry.attributes.position.needsUpdate = true;
+
+          const tp = c.trailParticles;
+          for (let i = 0; i < CONFIG.particles.trailCount; i++) {
+            if (tp.life[i] > 0) {
+              tp.pos[i * 3] += tp.vels[i * 3];
+              tp.pos[i * 3 + 1] += tp.vels[i * 3 + 1];
+              tp.pos[i * 3 + 2] += tp.vels[i * 3 + 2];
+              tp.life[i] -= dt * 1.5;
+              if (tp.life[i] < 0) tp.life[i] = 0;
+            }
+          }
+          tp.mesh.geometry.attributes.position.needsUpdate = true;
+
+          const showSpread = c.state === STATES.ORGANIZING || c.state === STATES.SELECTING || c.state === STATES.HOVERING;
+          neonSpread.material.opacity = THREE.MathUtils.lerp(neonSpread.material.opacity,showSpread ? 0.95 : 0,1-Math.exp(-dt*5));
+          neonSpread.visible = neonSpread.material.opacity > 0.005;
+          neonSpread.scale.x = Math.min(1,camera.aspect/1.45);
+          animatedBackdrop.material.uniforms.uTime.value=elapsedTime;
+          animatedBackdrop.material.uniforms.uOpacity.value=(c.state===STATES.IDLE||c.state===STATES.SHUFFLING)?0.95:0.25;
+          renderer.render(scene, camera);
+        };
+
+        animate();
+
+        return () => {
+          cancelAnimationFrame(animationFrameId);
+          clearTimeout(revealTimeout);
+          magicBackTexture.dispose();
+          animatedBackdrop.geometry.dispose();
+          animatedBackdrop.material.dispose();
+          neonSpread.geometry.dispose();
+          neonSpread.material.map.dispose();
+          neonSpread.material.dispose();
+          window.removeEventListener('mousedown', handleMouseDown);
+          window.removeEventListener('mouseup', handleMouseUp);
+          window.removeEventListener('mousemove', handleMouseMove);
+          window.removeEventListener('dblclick', handleDblClick);
+          window.removeEventListener('resize', handleResize);
+          if (cameraStream) cameraStream.stop();
+          renderer.dispose();
+          if (currentMount) currentMount.innerHTML = '';
+        };
+      }, []);
+
+      const getGuidanceText = () => {
+        switch (appState) {
+          case STATES.IDLE:
+            return "张开五指（或按住鼠标拖拽）· 开启 78 张全量牌组洗牌";
+          case STATES.SHUFFLING:
+            return "在桌面肆意拨动揉散 78 张牌 · 完整握拳（或双击）结束洗牌";
+          case STATES.ORGANIZING:
+            return `${remainingCount} 张剩余牌整理中 · 延续同一副牌，不重新洗牌`;
+          case STATES.SELECTING:
+            return "左右移动食指 · 指针实时定位所指塔罗牌";
+          case STATES.HOVERING:
+            return `食指保持指向 · 紫色灵力聚集中 (${(hoverProgress * 5).toFixed(1)}s / 5.0s)`;
+          case STATES.REVEALING:
+          case STATES.REVEALED:
+            return "本张已确认 · 点击下一张继续抽取，或查看结果";
+          default:
+            return "";
+        }
+      };
+
+      return React.createElement(
+        'div',
+        { style: { width: '100%', height: '100%', position: 'relative' } },
+        React.createElement('div', { ref: mountRef, style: { width: '100%', height: '100%' } }),
+        React.createElement('div', { className: 'film-grain' }),
+
+        // 左侧手势与步骤教程面板
+        React.createElement(
+          'div',
+          { className: 'tutorial-panel' },
+          React.createElement(
+            'div',
+            { className: 'tutorial-title' },
+            React.createElement('span', null, "78 伟特塔罗仪式指引"),
+            React.createElement('span', { style: { fontSize: '9px', opacity: 0.8 } }, "1909 RWS DECK")
+          ),
+          React.createElement(
+            'div',
+            { className: `tutorial-step ${appState === STATES.IDLE || appState === STATES.SHUFFLING ? 'active' : ''}` },
+            React.createElement('span', { className: 'tutorial-icon' }, "🖐️"),
+            React.createElement('div', null, React.createElement('strong', null, "1. 五指张开"), "：进入大面积散牌洗牌，手掌实时推散 78 张牌海")
+          ),
+          React.createElement(
+            'div',
+            { className: `tutorial-step ${appState === STATES.ORGANIZING ? 'active' : ''}` },
+            React.createElement('span', { className: 'tutorial-icon' }, "✊"),
+            React.createElement('div', null, React.createElement('strong', null, "2. 完整握拳"), "：结束洗牌，78 张牌从左至右自然流畅排列")
+          ),
+          React.createElement(
+            'div',
+            { className: `tutorial-step ${appState === STATES.SELECTING || appState === STATES.HOVERING ? 'active' : ''}` },
+            React.createElement('span', { className: 'tutorial-icon' }, "☝️"),
+            React.createElement('div', null, React.createElement('strong', null, "3. 单食指指针"), "：左右移动食指实时寻牌，静止 5 秒锁定抽出")
+          ),
+          React.createElement(
+            'div',
+            { className: `tutorial-step ${appState === STATES.REVEALED ? 'active' : ''}` },
+            React.createElement('span', { className: 'tutorial-icon' }, "✨"),
+            React.createElement('div', null, React.createElement('strong', null, "4. 连续抽牌"), "：点击下一张，从剩余牌中继续抽取；本轮只洗一次")
+          )
+        ),
+
+        // 顶部 HUD
+        React.createElement(
+          'div',
+          { className: 'ritual-overlay' },
+          React.createElement(
+            'div',
+            { style: { display: 'flex', justifyContent: 'center', width: '100%', flexDirection: 'column', alignItems: 'center', gap: '6px' } },
+            React.createElement('div', { className: 'status-badge' }, `RITUAL STATE: ${appState} · 牌组 ${FULL_78_DECK.length} 张 · 剩余 ${remainingCount} 张`),
+            positionLabel && React.createElement('div', { className: 'position-label' }, positionLabel)
+          ),
+          React.createElement(
+            'div',
+            { className: 'instructions-hint' },
+            getGuidanceText()
+          ),
+          React.createElement('div', null)
+        ),
+
+        onExit && React.createElement(
+          'button',
+          { className: 'exit-ritual-btn', onClick: onExit },
+          '← 返回主页'
+        ),
+
+        // 翻牌成功结果展示
+        revealedCard && React.createElement(
+          'div',
+          { 
+            className: 'card-title-panel',
+            style: { 
+              opacity: appState === STATES.REVEALED ? 1 : 0,
+              transform: appState === STATES.REVEALED ? 'translateX(-50%) translateY(0)' : 'translateX(-50%) translateY(20px)'
+            }
+          },
+          React.createElement('div', { className: 'card-title-num' }, revealedCard.number),
+          React.createElement('div', { className: 'card-title-name' }, revealedCard.name),
+          React.createElement('div', { className: 'card-title-desc' }, revealedCard.desc)
+        ),
+
+        // 右上角 Live Tracking Feed
+        !disableCamera && React.createElement(
+          'div',
+          { className: 'camera-container' },
+          React.createElement('video', { ref: videoRef, playsInline: true, muted: true }),
+          React.createElement('canvas', { ref: camCanvasRef, width: 320, height: 240 }),
+          React.createElement(
+            'div',
+            { className: 'camera-meta' },
+            React.createElement('span', null, handDetected ? `GESTURE: ${currentGestureName}` : "MOUSE FALLBACK"),
+            React.createElement('span', null, `${remainingCount} / 78 RWS`)
+          )
+        )
+      );
+    }
+
+    // =========================================================================
+    // 5. App 外壳：首页导航 / 主题与问题 / 牌阵选择 / 牌库 / 占卜日记 / 设置
+    // =========================================================================
+    function useLocalSetting(key, defaultValue) {
+      const [value, setValue] = useState(() => {
+        try {
+          const stored = window.localStorage.getItem(key);
+          return stored !== null ? JSON.parse(stored) : defaultValue;
+        } catch (e) { return defaultValue; }
+      });
+      useEffect(() => {
+        try { window.localStorage.setItem(key, JSON.stringify(value)); } catch (e) {}
+      }, [key, value]);
+      return [value, setValue];
+    }
+
+    // ============ 占卜日记本地存储 ============
+    const JOURNAL_KEY = 'arcana-journal';
+    function getJournal() {
+      try {
+        const raw = window.localStorage.getItem(JOURNAL_KEY);
+        return raw ? JSON.parse(raw) : [];
+      } catch (e) { return []; }
+    }
+    function saveJournalEntry(entry) {
+      const list = getJournal();
+      list.unshift(entry);
+      try { window.localStorage.setItem(JOURNAL_KEY, JSON.stringify(list)); } catch (e) {}
+      return list;
+    }
+    function deleteJournalEntry(id) {
+      const list = getJournal().filter(e => e.id !== id);
+      try { window.localStorage.setItem(JOURNAL_KEY, JSON.stringify(list)); } catch (e) {}
+      return list;
+    }
+
+    // ============ 主题与示例问题 ============
+    const THEMES = [
+      { key: 'love', label: '感情', icon: '💗' },
+      { key: 'career', label: '事业', icon: '💼' },
+      { key: 'self', label: '自我探索', icon: '🧭' },
+      { key: 'relationship', label: '人际关系', icon: '🤝' },
+      { key: 'general', label: '综合 / 其他', icon: '🌙' }
+    ];
+
+    const EXAMPLE_QUESTIONS = {
+      love: ["我能怎样改善和伴侣的沟通？", "这段关系接下来会如何发展？", "我该如何更清楚地表达自己的感受？"],
+      career: ["我目前最需要关注的职业发展方向是什么？", "我该如何应对当前工作中的这个挑战？", "接下来适合我争取这次机会吗？"],
+      self: ["我现在最需要放下的是什么？", "我该如何更好地照顾自己？", "阻碍我成长的核心是什么？"],
+      relationship: ["我能怎样改善和TA的沟通？", "这段友谊/合作关系需要注意什么？", "我该如何设立更健康的界限？"],
+      general: ["这件事接下来最可能的走向是什么？", "我现在最需要看到的讯息是什么？", "我该把注意力放在哪里？"]
+    };
+
+    // ============ 四种牌阵定义(含教程说明) ============
+    const SPREADS = [
+      {
+        id: 'single', name: '单牌法', icon: '🔮',
+        desc: '快速获得一个问题的核心讯息',
+        tutorial: '最简单的牌阵：抽一张牌，直接回应你当下的问题，适合需要快速指引或每日一问的场合。',
+        positions: ['核心讯息']
+      },
+      {
+        id: 'three', name: '三张牌阵', icon: '⏳',
+        desc: '过去 · 现在 · 未来的完整脉络',
+        tutorial: '经典三张牌阵：第一张看事情的成因或过去，第二张看当下状态，第三张看可能的发展方向，帮助梳理一条时间线。',
+        positions: ['过去', '现在', '未来']
+      },
+      {
+        id: 'horseshoe', name: '马蹄形牌阵', icon: '🧲',
+        desc: '七张牌，全面剖析局势的来龙去脉',
+        tutorial: '七张牌呈马蹄形排列：依次是过去、现在、隐藏因素、阻碍、外部环境（他人态度）、建议行动、可能结果，适合梳理一个具体又复杂的处境。',
+        positions: ['过去', '现在', '隐藏因素', '阻碍', '外部环境', '建议行动', '可能结果']
+      },
+      {
+        id: 'celtic', name: '凯尔特十字牌阵', icon: '✝️',
+        desc: '十张牌，最经典完整的深度牌阵',
+        tutorial: '塔罗中最经典的十张牌阵：现状、挑战、潜意识基础、过去、意识目标、未来、自我态度、外部环境、希望与恐惧、最终结果，适合需要全面深入分析的重要问题。',
+        positions: ['现状', '挑战', '潜意识基础', '过去', '意识目标', '未来', '自我态度', '外部环境', '希望与恐惧', '最终结果']
+      }
+    ];
+
+    function HomeScreen({ onNavigate }) {
+      const modules = [
+        { id: 'theme-select', icon: '✧', title: '抽牌占卜', desc: '设定主题与问题，选择牌阵进行占卜', label: '01 / THE RITUAL' },
+        { id: 'encyclopedia', icon: '☾', title: '牌库', desc: '78张牌的含义、象征与牌阵教程', label: '02 / THE DECK' },
+        { id: 'journal', icon: '⌑', title: '占卜日记', desc: '保存问题与结果，回顾每一次内在探索', label: '03 / THE JOURNAL' }
+      ];
+      return React.createElement('div', { className: 'home-screen landing' },
+        React.createElement('div', { className: 'film-grain', 'aria-hidden': true }),
+        React.createElement('header', { className: 'landing-nav' },
+          React.createElement('div', { className: 'wordmark' }, React.createElement('span', { 'aria-hidden': true }, '✧'), 'ARCANA'),
+          React.createElement('div', { className: 'nav-caption' }, 'A MOMENT WITH YOUR INNER SELF'),
+          React.createElement('button', { className: 'quiet-button', onClick: () => onNavigate('settings') }, '设置 ↗')
+        ),
+        React.createElement('section', { className: 'landing-hero' },
+          React.createElement('div', null,
+            React.createElement('div', { className: 'eyebrow' }, 'THE ART OF INNER REFLECTION'),
+            React.createElement('h1', { className: 'hero-title' }, '静下来，', React.createElement('br'), '听见内心的指引。'),
+            React.createElement('p', { className: 'hero-copy' }, '让问题沉淀，让直觉浮现。', React.createElement('br'), '从一张牌开始，留一点时间给自己。')
+          ),
+          React.createElement('div', { className: 'celestial', 'aria-hidden': true },
+            React.createElement('span', { className: 'orbit-star' }, '✦'),
+            React.createElement('div', { className: 'celestial-moon' }),
+            React.createElement('div', { className: 'orbit-caption' }, 'AS ABOVE, SO BELOW')
+          )
+        ),
+        React.createElement('div', { className: 'section-label' }, '开启你的探索 / EXPLORE'),
+        React.createElement('div', { className: 'home-grid' }, modules.map(m =>
+          React.createElement('button', { key: m.id, className: 'home-card', onClick: () => onNavigate(m.id) },
+            React.createElement('div', { className: 'module-top' },
+              React.createElement('span', { className: 'module-symbol', 'aria-hidden': true }, m.icon),
+              React.createElement('span', { className: 'module-index' }, m.label)),
+            React.createElement('div', { className: 'home-card-title' }, m.title),
+            React.createElement('div', { className: 'home-card-desc' }, m.desc),
+            React.createElement('span', { className: 'module-arrow', 'aria-hidden': true }, '↗')
+          )
+        )),
+        React.createElement('footer', { className: 'landing-footer' },
+          React.createElement('span', null, '78 RIDER–WAITE–SMITH TAROT · 1909 DECK'),
+          React.createElement('span', null, '✧  每一次相遇，都是与自己的对话')
+        )
+      );
+    }
+
+    function ThemeSelectScreen({ onSelect, onBack }) {
+      return React.createElement(
+        'div', { className: 'home-screen' },
+        React.createElement('button', { className: 'exit-ritual-btn exit-ritual-btn-static', onClick: onBack }, '← 返回主页'),
+        React.createElement('div', { className: 'home-header' },
+          React.createElement('div', { className: 'home-title' }, '选择主题'),
+          React.createElement('div', { className: 'home-subtitle' }, '这次占卜想聚焦在哪个方面？')
+        ),
+        React.createElement('div', { className: 'home-grid' },
+          THEMES.map(t => React.createElement('div', {
+            key: t.key,
+            className: 'home-card',
+            onClick: () => onSelect(t)
+          },
+            React.createElement('div', { className: 'home-card-icon' }, t.icon),
+            React.createElement('div', { className: 'home-card-title' }, t.label)
+          ))
+        )
+      );
+    }
+
+    function QuestionInputScreen({ theme, onNext, onBack }) {
+      const [question, setQuestion] = useState('');
+      const examples = EXAMPLE_QUESTIONS[theme.key] || EXAMPLE_QUESTIONS.general;
+      const [exampleIdx, setExampleIdx] = useState(0);
+
+      return React.createElement(
+        'div', { className: 'home-screen' },
+        React.createElement('button', { className: 'exit-ritual-btn exit-ritual-btn-static', onClick: onBack }, '← 返回主页'),
+        React.createElement('div', { className: 'home-header' },
+          React.createElement('div', { className: 'home-title' }, `${theme.icon} ${theme.label}`),
+          React.createElement('div', { className: 'home-subtitle' }, '输入你想问的问题')
+        ),
+        React.createElement('div', { className: 'question-box' },
+          React.createElement('textarea', {
+            className: 'question-textarea',
+            placeholder: '尽量提出具体、开放的问题，例如「我能怎样改善沟通？」而不是「他喜不喜欢我」……',
+            value: question,
+            onChange: (e) => setQuestion(e.target.value)
+          }),
+          React.createElement('div', { className: 'example-row' },
+            React.createElement('span', { className: 'example-label' }, '示例问题：'),
+            React.createElement('span', { className: 'example-text' }, examples[exampleIdx]),
+            React.createElement('button', { className: 'chip-btn', onClick: () => setExampleIdx((exampleIdx + 1) % examples.length) }, '换一个'),
+            React.createElement('button', { className: 'chip-btn', onClick: () => setQuestion(examples[exampleIdx]) }, '用这个问题')
+          ),
+          React.createElement('button', {
+            className: 'primary-btn question-next-btn',
+            onClick: () => onNext(question.trim() || examples[exampleIdx])
+          }, '下一步 · 选择牌阵 →')
+        )
+      );
+    }
+
+    function SpreadSelectScreen({ onSelect, onBack }) {
+      return React.createElement(
+        'div', { className: 'home-screen' },
+        React.createElement('button', { className: 'exit-ritual-btn exit-ritual-btn-static', onClick: onBack }, '← 返回主页'),
+        React.createElement('div', { className: 'home-header' },
+          React.createElement('div', { className: 'home-title' }, '选择牌阵'),
+          React.createElement('div', { className: 'home-subtitle' }, 'CHOOSE YOUR SPREAD')
+        ),
+        React.createElement('div', { className: 'home-grid' },
+          SPREADS.map(s => React.createElement('div', {
+            key: s.id,
+            className: 'home-card',
+            onClick: () => onSelect(s)
+          },
+            React.createElement('div', { className: 'home-card-icon' }, s.icon),
+            React.createElement('div', { className: 'home-card-title' }, `${s.name} · ${s.positions.length}张`),
+            React.createElement('div', { className: 'home-card-desc' }, s.desc)
+          ))
+        )
+      );
+    }
+
+    function SpreadResultScreen({ spread, theme, question, revealed, onBack, onRestart }) {
+      const [feeling, setFeeling] = useState('');
+      const [tags, setTags] = useState('');
+      const [saved, setSaved] = useState(false);
+
+      const handleSave = () => {
+        saveJournalEntry({
+          id: `${Date.now()}`,
+          date: new Date().toISOString(),
+          themeLabel: theme ? theme.label : '综合',
+          question: question || '（未填写问题）',
+          spreadName: spread.name,
+          cards: revealed.map(r => ({ position: r.position, name: r.card.name, number: r.card.number, reversed: r.reversed })),
+          feeling,
+          tags: tags.split(/[,，\s]+/).filter(Boolean)
+        });
+        setSaved(true);
+      };
+
+      return React.createElement(
+        'div', { className: 'home-screen' },
+        React.createElement('button', { className: 'exit-ritual-btn exit-ritual-btn-static', onClick: onBack }, '← 返回主页'),
+        React.createElement('div', { className: 'home-header' },
+          React.createElement('div', { className: 'home-title' }, spread.name),
+          React.createElement('div', { className: 'home-subtitle' }, '占卜结果 · READING RESULT')
+        ),
+        question && React.createElement('div', { className: 'result-question' }, `你的问题：${question}`),
+        React.createElement('div', { className: 'result-list' },
+          revealed.map((r, i) => React.createElement('div', { key: i, className: 'result-item' },
+            React.createElement('div', { className: 'result-position' }, r.position),
+            React.createElement('div', { className: 'result-card-name' },
+              `${r.card.number} · ${r.card.name}`,
+              r.reversed && React.createElement('span', { className: 'reversed-badge' }, '逆位')
+            ),
+            React.createElement('div', { className: 'result-card-desc' }, r.reversed ? r.card.reversedMeaning : r.card.uprightMeaning)
+          ))
+        ),
+        React.createElement('div', { className: 'journal-save-box' },
+          React.createElement('div', { className: 'settings-label' }, '记录此刻的感受（可选）'),
+          React.createElement('textarea', {
+            className: 'question-textarea small',
+            placeholder: '这次抽牌带给你什么感受或想法？',
+            value: feeling,
+            onChange: (e) => setFeeling(e.target.value)
+          }),
+          React.createElement('input', {
+            className: 'tag-input',
+            placeholder: '添加标签，用逗号分隔，例如：工作, 重要决定',
+            value: tags,
+            onChange: (e) => setTags(e.target.value)
+          }),
+          React.createElement('div', { className: 'result-btn-row' },
+            React.createElement('button', { className: 'primary-btn', onClick: handleSave, disabled: saved }, saved ? '已保存到占卜日记 ✓' : '保存到占卜日记'),
+            React.createElement('button', { className: 'primary-btn ghost-btn', onClick: onRestart }, '再抽一次')
+          )
+        )
+      );
+    }
+
+    function SpreadFlow({ spread, theme, question, disableCamera, onBack }) {
+      const [index, setIndex] = useState(0);
+      const [revealed, setRevealed] = useState([]);
+      const [pendingCard, setPendingCard] = useState(null);
+      const [pendingReversed, setPendingReversed] = useState(false);
+
+      if (index >= spread.positions.length) {
+        return React.createElement(SpreadResultScreen, {
+          spread, theme, question, revealed, onBack,
+          onRestart: () => { setIndex(0); setRevealed([]); setPendingCard(null); }
+        });
+      }
+
+      return React.createElement(
+        'div', { style: { width: '100%', height: '100%', position: 'relative' } },
+        React.createElement(DrawRitual, {
+          drawIndex: index,
+          disableCamera,
+          positionLabel: `第 ${index + 1} / ${spread.positions.length} 张 · ${spread.positions[index]}`,
+          onExit: onBack,
+          onRevealed: (cardData) => { setPendingCard(cardData); setPendingReversed(Math.random() < 0.5); }
+        }),
+        pendingCard && React.createElement(
+          'button',
+          {
+            className: 'primary-btn next-position-btn',
+            onClick: () => {
+              setRevealed(r => [...r, { position: spread.positions[index], card: pendingCard, reversed: pendingReversed }]);
+              setPendingCard(null);
+              setIndex(i => i + 1);
+            }
+          },
+          index + 1 < spread.positions.length ? `下一张 · ${spread.positions[index + 1]} →` : '查看结果 →'
+        )
+      );
+    }
+
+    function EncyclopediaScreen({ onBack }) {
+      const [tab, setTab] = useState('cards');
+      const [filter, setFilter] = useState('ALL');
+      const [selected, setSelected] = useState(null);
+
+      const filters = [
+        { key: 'ALL', label: '全部' },
+        { key: 'major', label: '大阿卡纳' },
+        { key: 'WANDS', label: '权杖' },
+        { key: 'CUPS', label: '圣杯' },
+        { key: 'SWORDS', label: '宝剑' },
+        { key: 'PENTACLES', label: '星币' }
+      ];
+
+      const list = FULL_78_DECK.filter(c => {
+        if (filter === 'ALL') return true;
+        if (filter === 'major') return c.arcana === 'major';
+        return c.suit === filter;
+      });
+
+      return React.createElement(
+        'div', { className: 'home-screen encyclopedia-screen' },
+        React.createElement('button', { className: 'exit-ritual-btn exit-ritual-btn-static', onClick: onBack }, '← 返回主页'),
+        React.createElement('div', { className: 'home-header' },
+          React.createElement('div', { className: 'home-title' }, '牌库'),
+          React.createElement('div', { className: 'home-subtitle' }, '78张牌介绍 · 正逆位含义 · 象征元素 · 牌阵教程')
+        ),
+        React.createElement('div', { className: 'filter-row' },
+          React.createElement('button', { className: `filter-chip tab-chip ${tab === 'cards' ? 'active' : ''}`, onClick: () => setTab('cards') }, '卡牌图鉴'),
+          React.createElement('button', { className: `filter-chip tab-chip ${tab === 'spreads' ? 'active' : ''}`, onClick: () => setTab('spreads') }, '牌阵教程')
+        ),
+        tab === 'cards' && React.createElement(React.Fragment, null,
+          React.createElement('div', { className: 'filter-row' },
+            filters.map(f => React.createElement('button', {
+              key: f.key,
+              className: `filter-chip ${filter === f.key ? 'active' : ''}`,
+              onClick: () => setFilter(f.key)
+            }, f.label))
+          ),
+          React.createElement('div', { className: 'card-grid' },
+            list.map(c => React.createElement('div', {
+              key: c.uniqueId,
+              className: 'mini-card',
+              style: { background: c.bgColor || '#1a0f28' },
+              onClick: () => setSelected(c)
+            },
+              React.createElement('img', { src: c.frontTexture, alt: c.name, loading: 'lazy' }),
+              React.createElement('div', { className: 'mini-card-name' }, c.name)
+            ))
+          )
+        ),
+        tab === 'spreads' && React.createElement('div', { className: 'result-list' },
+          SPREADS.map(s => React.createElement('div', { key: s.id, className: 'result-item' },
+            React.createElement('div', { className: 'result-card-name' }, `${s.icon} ${s.name} · ${s.positions.length}张牌`),
+            React.createElement('div', { className: 'result-card-desc' }, s.tutorial),
+            React.createElement('div', { className: 'spread-positions-row' },
+              s.positions.map((p, i) => React.createElement('span', { key: i, className: 'position-chip' }, `${i + 1}. ${p}`))
+            )
+          ))
+        ),
+        selected && React.createElement(
+          'div', { className: 'card-modal-backdrop', onClick: () => setSelected(null) },
+          React.createElement('div', { className: 'card-modal', onClick: (e) => e.stopPropagation() },
+            React.createElement('img', { src: selected.frontTexture, alt: selected.name }),
+            React.createElement('div', { className: 'card-modal-info' },
+              React.createElement('div', { className: 'card-modal-num' }, selected.number),
+              React.createElement('div', { className: 'card-modal-name' }, selected.name),
+              React.createElement('div', { className: 'card-modal-sub' }, `象征元素：${selected.sub}`),
+              React.createElement('div', { className: 'card-modal-meaning' },
+                React.createElement('strong', null, '正位：'), selected.uprightMeaning
+              ),
+              React.createElement('div', { className: 'card-modal-meaning' },
+                React.createElement('strong', null, '逆位：'), selected.reversedMeaning
+              ),
+              React.createElement('button', { className: 'primary-btn', onClick: () => setSelected(null) }, '关闭')
+            )
+          )
+        )
+      );
+    }
+
+    function JournalScreen({ onBack }) {
+      const [entries, setEntries] = useState(() => getJournal());
+      const [search, setSearch] = useState('');
+      const [openId, setOpenId] = useState(null);
+
+      const filtered = entries.filter(e => {
+        if (!search.trim()) return true;
+        const s = search.trim().toLowerCase();
+        return (
+          e.question.toLowerCase().includes(s) ||
+          e.spreadName.toLowerCase().includes(s) ||
+          e.themeLabel.toLowerCase().includes(s) ||
+          (e.tags || []).some(t => t.toLowerCase().includes(s)) ||
+          (e.cards || []).some(c => c.name.toLowerCase().includes(s))
+        );
+      });
+
+      const handleDelete = (id) => {
+        setEntries(deleteJournalEntry(id));
+        if (openId === id) setOpenId(null);
+      };
+
+      return React.createElement(
+        'div', { className: 'home-screen encyclopedia-screen' },
+        React.createElement('button', { className: 'exit-ritual-btn exit-ritual-btn-static', onClick: onBack }, '← 返回主页'),
+        React.createElement('div', { className: 'home-header' },
+          React.createElement('div', { className: 'home-title' }, '占卜日记'),
+          React.createElement('div', { className: 'home-subtitle' }, '保存的问题、牌阵与结果')
+        ),
+        React.createElement('input', {
+          className: 'tag-input journal-search',
+          placeholder: '按问题 / 牌名 / 标签 / 主题搜索…',
+          value: search,
+          onChange: (e) => setSearch(e.target.value)
+        }),
+        filtered.length === 0 && React.createElement('div', { className: 'empty-hint' }, '还没有记录，去抽一次牌试试吧。'),
+        React.createElement('div', { className: 'result-list' },
+          filtered.map(entry => React.createElement('div', { key: entry.id, className: 'result-item journal-item' },
+            React.createElement('div', {
+              onClick: () => setOpenId(openId === entry.id ? null : entry.id),
+              style: { cursor: 'pointer' }
+            },
+              React.createElement('div', { className: 'result-position' }, `${new Date(entry.date).toLocaleString()} · ${entry.themeLabel} · ${entry.spreadName}`),
+              React.createElement('div', { className: 'result-card-name' }, entry.question),
+              entry.tags && entry.tags.length > 0 && React.createElement('div', { className: 'spread-positions-row' },
+                entry.tags.map((t, i) => React.createElement('span', { key: i, className: 'position-chip' }, `#${t}`))
+              )
+            ),
+            openId === entry.id && React.createElement('div', { className: 'journal-detail' },
+              entry.cards.map((c, i) => React.createElement('div', { key: i, className: 'result-card-desc' },
+                `· ${c.position}：${c.name}${c.reversed ? '（逆位）' : ''}`
+              )),
+              entry.feeling && React.createElement('div', { className: 'journal-feeling' }, `感受：${entry.feeling}`)
+            ),
+            React.createElement('button', { className: 'chip-btn delete-btn', onClick: () => handleDelete(entry.id) }, '删除')
+          ))
+        )
+      );
+    }
+
+    function SettingsScreen({ disableCamera, setDisableCamera, onBack }) {
+      return React.createElement(
+        'div', { className: 'home-screen' },
+        React.createElement('button', { className: 'exit-ritual-btn exit-ritual-btn-static', onClick: onBack }, '← 返回主页'),
+        React.createElement('div', { className: 'home-header' },
+          React.createElement('div', { className: 'home-title' }, '设置'),
+          React.createElement('div', { className: 'home-subtitle' }, 'SETTINGS')
+        ),
+        React.createElement('div', { className: 'settings-list' },
+          React.createElement('div', { className: 'settings-row' },
+            React.createElement('div', null,
+              React.createElement('div', { className: 'settings-label' }, '使用鼠标模式'),
+              React.createElement('div', { className: 'settings-desc' }, '关闭摄像头与手势识别，改用鼠标拖拽/点击进行抽牌')
+            ),
+            React.createElement('button', {
+              className: `toggle-btn ${disableCamera ? 'on' : ''}`,
+              onClick: () => setDisableCamera(!disableCamera)
+            }, disableCamera ? '已关闭摄像头' : '摄像头开启中')
+          )
+        )
+      );
+    }
+
+    function App() {
+      const [screen, setScreen] = useState('home');
+      const [selectedTheme, setSelectedTheme] = useState(null);
+      const [question, setQuestion] = useState('');
+      const [selectedSpread, setSelectedSpread] = useState(null);
+      const [disableCamera, setDisableCamera] = useLocalSetting('arcana-disable-camera', false);
+
+      const goHome = () => {
+        setScreen('home');
+        setSelectedTheme(null);
+        setQuestion('');
+        setSelectedSpread(null);
+      };
+
+      let content = null;
+      if (screen === 'home') {
+        content = React.createElement(HomeScreen, { onNavigate: setScreen });
+      } else if (screen === 'theme-select') {
+        content = React.createElement(ThemeSelectScreen, {
+          onBack: goHome,
+          onSelect: (theme) => { setSelectedTheme(theme); setScreen('question-input'); }
+        });
+      } else if (screen === 'question-input' && selectedTheme) {
+        content = React.createElement(QuestionInputScreen, {
+          theme: selectedTheme,
+          onBack: goHome,
+          onNext: (q) => { setQuestion(q); setScreen('spread-select'); }
+        });
+      } else if (screen === 'spread-select') {
+        content = React.createElement(SpreadSelectScreen, {
+          onBack: goHome,
+          onSelect: (spread) => { setSelectedSpread(spread); setScreen('spread-draw'); }
+        });
+      } else if (screen === 'spread-draw' && selectedSpread) {
+        content = React.createElement(SpreadFlow, {
+          key: selectedSpread.id, spread: selectedSpread, theme: selectedTheme, question, disableCamera, onBack: goHome
+        });
+      } else if (screen === 'encyclopedia') {
+        content = React.createElement(EncyclopediaScreen, { onBack: goHome });
+      } else if (screen === 'journal') {
+        content = React.createElement(JournalScreen, { onBack: goHome });
+      } else if (screen === 'settings') {
+        content = React.createElement(SettingsScreen, { disableCamera, setDisableCamera, onBack: goHome });
+      } else {
+        content = React.createElement(HomeScreen, { onNavigate: setScreen });
+      }
+
+      return React.createElement('div', { style: { width: '100%', height: '100%', position: 'relative' } }, content);
+    }
+
+    const root = createRoot(document.getElementById('root'));
+    root.render(React.createElement(App));
+  </script>
+</body>
+</html>
